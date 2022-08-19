@@ -8,6 +8,7 @@ Library currently uses library number 89, this may change.
 
 
 Hello World test instructions:
+- Add megadrivelib.obj to your DefLibs
 - Open helloworld.bb in Blitz Basic 2 (AmiBlitz may work but is untested)
 - Compile to a file simply called "HelloWorld"
 - Run this command from the CLI - "Blitz2Sega HelloWorld HelloWorld.rom"
