@@ -43,6 +43,18 @@
     subs MD_LoadPatterns,0,0	
   name "MD_LoadPatterns","Pattern address, first pattern index, num of patterns"
 	
+  astatement
+    args long, long
+    libs
+    subs MD_VDP_Write,0,0	
+  name "MD_VDP_Write","Set the write address in the VDP"	
+	
+  astatement
+    args word
+    libs
+    subs MD_VDP_MoveW,0,0	
+  name "MD_VDP_MoveW","Poke a single word on the VDP"		
+	
   afunction word
     args
 	libs

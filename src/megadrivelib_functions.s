@@ -273,20 +273,37 @@ MD_SetBackgroundColor
 	move.w D0,VDP_CONTROL
 	RTS
 
-MD_LoadPatterns:
+;D0 = Address
+;D1 = Auto increment
+MD_VDP_Write	
+	or.w #$8F00,D1
+	Move.w D1,VDP_CONTROL
+
+	Move.l D0,D1
+	And.w #$3fff,D0
+	SWAP D0
 	
+	And.w #$c000,D1
+	LSR #7,D1
+	LSR #7,D1	
+	Or.w D1,D0
+	Or.l #$40000000,D0
+    move.l D0,VDP_CONTROL
+	RTS
+	
+MD_VDP_MoveW
+	Move.w D0,VDP_DATA
+	RTS
+
+MD_LoadPatterns:
 	;Convert the pattern number into the memory offset
 	LSL #5,D1
-	Move.l D1,D3
-	And.w #$3fff,D1
-	SWAP D1
 	
-	And.w #$c000,D3
-	SWAP D3
-	LSL #2,D3
-	Or.w D3,D1	
-	Or.l #$40000000,D1
-    move.l D1,VDP_CONTROL
+	MOVEM D0-D7/A0-A6,-(A7)
+	Move.l D1,D0
+	MoveQ  #2,D1
+	JSR MD_VDP_Write
+	MOVEM (A7)+,D0-D7/A0-A6 	
 
 	move.l d0,a0             ; Load address of Characters into a0
 	subq.b   #1,d2            ; Num patterns - 1
