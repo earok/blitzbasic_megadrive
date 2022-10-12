@@ -1,4 +1,4 @@
-The Mega Drive kit for Blitz Basic is early in development, and is missing support for vital features like sprites, audio and controllers. What I've developed so far is likely to break if extreme care isn't taken (if for example a Blitz library that opens an Amiga library is used), and I can't provide support - but it's here for you to tinker if you wish, and help developing the library would be appreciated.
+The Mega Drive kit for Blitz Basic is early in development, and is missing support for vital features like sprites, audio and controllers. What I've developed so far is likely to break if extreme care isn't taken (if for example a Blitz library that opens an Amiga library is used), and I may not be able to provide support - but it's here for you to tinker if you wish, and help developing the library would be appreciated.
 
 Blitz Basic wasn't designed with the Mega Drive in mind, but the Mega Drive being a 68K platform means that Blitz Basic is certainly an option for developing on it (and in fact, it was used to develop the Mega Drive version of Super Skidmarks).
 
@@ -8,6 +8,7 @@ Library currently uses library number 89, this may change.
 
 
 Hello World test instructions:
+- Add megadrivelib.obj to your DefLibs
 - Open helloworld.bb in Blitz Basic 2 (AmiBlitz may work but is untested)
 - Compile to a file simply called "HelloWorld"
 - Run this command from the CLI - "Blitz2Sega HelloWorld HelloWorld.rom"
