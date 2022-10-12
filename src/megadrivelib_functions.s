@@ -1,5 +1,11 @@
 VDP_CONTROL	equ	$00C00004
 VDP_DATA	equ $00C00000
+VRAM_ADDR_CMD:  equ $40000000
+CRAM_ADDR_CMD:  equ $C0000000
+VSRAM_ADDR_CMD: equ $40000010
+VRAM_SIZE:    equ 65536
+CRAM_SIZE:    equ 128
+VSRAM_SIZE:   equ 80
 
 MD_VWait
    MoveQ #1,D0
@@ -36,8 +42,33 @@ Clear:
 	move.l d0,-(a0)           ; Decrement the address by 1 longword, before moving the zero from d0 to it
 	dbra d1,Clear            ; Decrement d0, repeat until depleted
 	move.l d2,(A7)
-	moveq #0,d2
+
+;https://plutiedev.com/vdp-setup wiping out ALL VDP
+    move.w #$8F04,VDP_CONTROL      ; Set autoincrement to 4 bytes
+    moveq   #0,d0          
+    
+    ; Clear VRAM
+    move.l  #VRAM_ADDR_CMD,VDP_CONTROL
+    move.w  #(VRAM_SIZE/4)-1,d1
+@ClearVram:
+    move.l  d0,VDP_DATA
+    dbf     d1,@ClearVram
+    
+    ; Clear CRAM
+    move.l  #CRAM_ADDR_CMD,VDP_CONTROL
+    move.w  #(CRAM_SIZE/4)-1,d1
+@ClearCram:
+    move.l  d0,VDP_DATA
+    dbf     d1,@ClearCram
+    
+    ; Clear VSRAM
+    move.l  #VSRAM_ADDR_CMD,VDP_CONTROL
+    move.w  #(VSRAM_SIZE/4)-1,d1
+@ClearVsram:
+    move.l  d0,VDP_DATA
+    dbf     d1,@ClearVsram
 	RTS
+
 	
 MD_Setup
 	move.b $00A10001,d0      ; Move Megadrive hardware version to d0
@@ -237,7 +268,6 @@ LAB_0004:
 	RTS				;7e: 4e75
 	
 MD_LoadPalette:
-
     move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 2 bytes
 	
 	;Set up target address
@@ -252,6 +282,58 @@ MD_LoadPalette:
 PalettteTransfer:
     move.l (a0)+,VDP_DATA    ; Move data to VDP port and increment source address
     dbra d2,PalettteTransfer      ; stop iterating if all of palette has been sent
+	RTS
+
+;D0 = Source
+;D1 = First Color
+;D2 = Num Of Colors
+;D3 = FadeAmount ;As quick, eg the top word is the whole number and the bottom word is the fraction
+MD_FadePalette:
+    move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 2 bytes
+	
+	LSR.l #8,D3
+	
+	;Set up target address
+	Swap.w D1
+	And.l #$00FF0000,D1
+	Or.l #$C0000000,D1	
+    move.l D1,VDP_CONTROL
+	
+	move.l d0,a0                 ; Load palette address into a0	
+    subq #$01,d2                ; Subtract 1 from the number of colors to transfer
+
+PalettteTransferFade:
+	moveq #0,D4 ;Clear the red, green and blue channels
+	moveq #0,D5
+	moveq #0,D6
+    move.w (a0)+,D6    				  ;Load the palette entry into D5
+
+	;blue First
+	move.w D6,D4
+	And.w #$000F,D4 ;blue only
+	LSL.w #8,D4 ;Shift right by left by 8 so we can multiply
+	MULU D3,D4
+	SWAP D4
+	
+	;Green second
+	move.w D6,D5
+	And.w #$00F0,D5 ;green only
+	LSL.w #4,D5 ;Shift right by left by 4 so we can multiply
+	MULU D3,D5
+	SWAP D5
+	LSL.w #4,D5 ;Move back to the original position
+
+	;Red third
+	And.w #$0F00,D6 ;green only. No need to shift
+	MULU D3,D6
+	SWAP D6
+	LSL.w #8,D6 ;Move back to the original position
+
+	;Combine RED, GREEN AND BLUE
+	or.w D4,D6
+	or.w D5,D6
+	move.w D6,VDP_DATA				  ; Load the palette into the VDP
+    dbra d2,PalettteTransferFade      ; stop iterating if all of palette has been sent
 	RTS
 	
 MD_ModeRegister4
@@ -273,52 +355,49 @@ MD_SetBackgroundColor
 	move.w D0,VDP_CONTROL
 	RTS
 
-;D0 = Address
-;D1 = Auto increment
-MD_VDP_Write	
-	or.w #$8F00,D1
-	Move.w D1,VDP_CONTROL
+;D0 = Source address
+;D1 = length
+;D2 = Dest Address
+;D3 = Auto increment
+MD_CopyTo_VDP	
+	or.w #$8F00,D3
+	Move.w D3,VDP_CONTROL
 
-	Move.l D0,D1
-	And.w #$3fff,D0
-	SWAP D0
+	Move.l D2,D3
+	And.w #$3fff,D2
+	SWAP D2
 	
-	And.w #$c000,D1
-	LSR #7,D1
-	LSR #7,D1	
-	Or.w D1,D0
-	Or.l #$40000000,D0
-    move.l D0,VDP_CONTROL
+	And.w #$c000,D3
+	LSR #7,D3
+	LSR #7,D3	
+	Or.w D3,D2
+	Or.l #$40000000,D2
+    move.l D2,VDP_CONTROL
+	
+	;The actual copy
+	Move.l D0,A0
+	SubQ #1,D1
+VDP_Copy ;Todo - unroll for performance reasons? Also offer a long-length solution?
+	Move.w (A0)+,VDP_DATA
+	dbra D1,VDP_Copy		
 	RTS
 	
-MD_VDP_MoveW
-	Move.w D0,VDP_DATA
-	RTS
-
+;D0 = The source address
+;D1 = The pattern index
+;D2 = The number of patterns
 MD_LoadPatterns:
 	;Convert the pattern number into the memory offset
 	LSL #5,D1
 	
-	MOVEM D0-D7/A0-A6,-(A7)
-	Move.l D1,D0
-	MoveQ  #2,D1
-	JSR MD_VDP_Write
-	MOVEM (A7)+,D0-D7/A0-A6 	
-
-	move.l d0,a0             ; Load address of Characters into a0
-	subq.b   #1,d2            ; Num patterns - 1
-	;Copy one pattern
-CopyPattern:
-	move.l (a0)+,VDP_DATA       ; Move data to VDP data port, and increment source address
-	move.l (a0)+,VDP_DATA       ; Move data to VDP data port, and increment source address
-	move.l (a0)+,VDP_DATA       ; Move data to VDP data port, and increment source address
-	move.l (a0)+,VDP_DATA       ; Move data to VDP data port, and increment source address
-	move.l (a0)+,VDP_DATA       ; Move data to VDP data port, and increment source address
-	move.l (a0)+,VDP_DATA       ; Move data to VDP data port, and increment source address
-	move.l (a0)+,VDP_DATA       ; Move data to VDP data port, and increment source address
-	move.l (a0)+,VDP_DATA       ; Move data to VDP data port, and increment source address	
-	dbra     d2,CopyPattern
-	RTS
+	;Multiply the number of patterns by 16 (32 bytes / 16 words / 8 long words)
+	LSL #4,D2
+	
+	;Let the VDP copy function do the rest
+	EXG D2,D1
+	MoveQ #2,D3
+	;Jmp rather than JSR as MD_CopyTo_VDP will take care of the rest
+	JMP MD_CopyTo_VDP
+	
 	
 MD_True:
 	MoveQ #-1,D0

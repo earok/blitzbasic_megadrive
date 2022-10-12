@@ -20,6 +20,12 @@
   name "MD_LoadPalette","Palette address, first color index, num of colors"
 	
   astatement
+    args long,word,word,quick
+    libs
+    subs MD_FadePalette,0,0	
+  name "MD_FadePalette","Palette address, first color index, num of colors,fade amount (quick)"
+	
+  astatement
     args byte
     libs
     subs MD_SetBackgroundColor,0,0	
@@ -44,16 +50,10 @@
   name "MD_LoadPatterns","Pattern address, first pattern index, num of patterns"
 	
   astatement
-    args long, long
+    args long,long,long,long
     libs
-    subs MD_VDP_Write,0,0	
-  name "MD_VDP_Write","Set the write address in the VDP"	
-	
-  astatement
-    args word
-    libs
-    subs MD_VDP_MoveW,0,0	
-  name "MD_VDP_MoveW","Poke a single word on the VDP"		
+    subs MD_CopyTo_VDP,0,0
+  name "MD_CopyTo_VDP","Source Address,Length,Dest Address,Auto Increment"	
 	
   afunction word
     args

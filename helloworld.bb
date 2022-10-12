@@ -180,23 +180,19 @@ Exception:
 MyVar.l = MD_True
 
 __main:
-	MD_LoadPalette ?Pal,0,16 ;Load the palette below
+	MD_FadePalette ?Pal,0,16,0 ;Fade the palette to nothing
 	MD_LoadPatterns ?Characters,1,7 ;Load the characters below
-	MD_VDP_Write $C000,2 ;Set the VDP to write to $C000 (plane A address) in video memory. Two bytes per MoveW
-	MD_VDP_MoveW #H
-	MD_VDP_MoveW #E
-	MD_VDP_MoveW #L
-	MD_VDP_MoveW #L
-	MD_VDP_MoveW #O
-	MD_VDP_MoveW #Space
-	MD_VDP_MoveW #W
-	MD_VDP_MoveW #O
-	MD_VDP_MoveW #R
-	MD_VDP_MoveW #L
-	MD_VDP_MoveW #D
-	
-.EndLoop
-	Goto EndLoop
+	MD_CopyTo_VDP ?CharacterString,11,$C000,2 ;Set the VDP to write to $C000 (plane A address) in video memory. Auto Increment 2
+
+	;Fade in
+	for i = 0 to 100
+		MD_FadePalette ?Pal,0,16,i / 100
+		MD_VWait 1
+	next
+
+.GameLoop
+		MD_VWait
+	Goto GameLoop
 	
 Pal:
    dc.w $0000 ; Colour 0 - Transparent
@@ -215,6 +211,19 @@ Pal:
    dc.w $000A ; Colour D - Maroon
    dc.w $0600 ; Colour E - Navy blue
    dc.w $0060 ; Colour F - Dark green
+   
+CharacterString:
+	dc.w #H
+	dc.w #E
+	dc.w #L
+	dc.w #L
+	dc.w #O
+	dc.w #Space
+	dc.w #W
+	dc.w #O
+	dc.w #R
+	dc.w #L
+	dc.w #D
 	
 Characters:
    dc.l $11000110 ; Character 0 - H
