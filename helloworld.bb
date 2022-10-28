@@ -174,7 +174,7 @@ __main:
 
 	MD_SetPlaneSize 1,0 ;512 * 256
 	MD_ModeRegister4 MD_True ;320 wide
-	MD_LoadPatterns ?Patterns,0,212
+	MD_LoadPatterns ?Patterns,0,(?NameTable - ?Patterns) / 32
 	
 	;Load each row	
 	VDPDestination.l = $c000
