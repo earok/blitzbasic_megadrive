@@ -170,26 +170,26 @@ Exception:
 ;Use MD_True or a constant like -1 rather than True - using "True" will attempt to add an Amiga library!
 
 __main:
-	MD_FadePalette ?Pal,0,64,0 ;Fade the palette to nothing
+	;Fade in
+;	for i = 0 to 100
+;		MD_FadePalette ?Pal,0,16,i / 100
+;		MD_VWait 1
+;	next
 
 	MD_SetPlaneSize 1,0 ;512 * 256
 	MD_ModeRegister4 MD_True ;320 wide
+
+	MD_LoadPalette ?Pal,0,16
 	MD_LoadPatterns ?Patterns,0,212
 	
 	;Load each row	
-	VDPDestination.l = $c000
+	VDPDestination = $c000
 	NameTableSource.l = ?NameTable
 	for row = 0 to 31
 		MD_CopyTo_VDP NameTableSource,40,VDPDestination,2
-		VDPDestination + 64*2
-		NameTableSource + 40*2
+		VDPDestination + 512*2
+		NameTableSource + 320*2
 	next
-	
-	;Fade in
-	for i = 0 to 100
-		MD_FadePalette ?Pal,0,64,i / 100
-		MD_VWait 1
-	next	
 
 .GameLoop
 	MD_VWait

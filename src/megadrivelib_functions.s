@@ -280,7 +280,7 @@ MD_LoadPalette:
     subq #$01,d2                ; Subtract 1 from the number of colors to transfer
 
 PalettteTransfer:
-    move.l (a0)+,VDP_DATA    ; Move data to VDP port and increment source address
+    move.w (a0)+,VDP_DATA    ; Move data to VDP port and increment source address
     dbra d2,PalettteTransfer      ; stop iterating if all of palette has been sent
 	RTS
 
@@ -340,7 +340,7 @@ MD_ModeRegister4
 	;Width 320 wide??
 	and.w #%10000001,D0
 	or.w #$8C00,D0
-	move.w D0,$c00004 ;256 window
+	move.w D0,VDP_CONTROL ;256 window
 	RTS
 	
 MD_SetPlaneSize
@@ -379,7 +379,7 @@ MD_CopyTo_VDP
 	SubQ #1,D1
 VDP_Copy ;Todo - unroll for performance reasons? Also offer a long-length solution?
 	Move.w (A0)+,VDP_DATA
-	dbra D1,VDP_Copy		
+	dbra D1,VDP_Copy
 	RTS
 	
 ;D0 = The source address

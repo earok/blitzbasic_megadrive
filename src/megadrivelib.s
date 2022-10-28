@@ -89,13 +89,13 @@
 	args
 	libs
 	subs MD_True,0,0
-  name "True","Substitute for Amiga true"
+  name "MD_True","Substitute for Amiga true"
 
   afunction long
 	args
 	libs
 	subs MD_False,0,0
-  name "False","Substitute for Amiga false"
+  name "MD_False","Substitute for Amiga false"
 
 blitz_finit:
 	nullsub _blitz_ahx_lib_finit,0,0
