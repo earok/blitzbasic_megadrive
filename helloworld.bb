@@ -175,15 +175,8 @@ __main:
 	MD_SetPlaneSize 1,0 ;512 * 256
 	MD_ModeRegister4 MD_True ;320 wide
 	MD_LoadPatterns ?Patterns,0,(?NameTable - ?Patterns) / 32
+	MD_CopyTo_NameTable ?NameTable,$c000,40,32,40,64
 	
-	;Load each row	
-	VDPDestination.l = $c000
-	NameTableSource.l = ?NameTable
-	for row = 0 to 31
-		MD_CopyTo_VDP NameTableSource,40,VDPDestination,2
-		VDPDestination + 64*2
-		NameTableSource + 40*2
-	next
 	
 	;Fade in
 	for i = 0 to 100

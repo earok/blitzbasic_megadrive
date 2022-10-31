@@ -55,6 +55,12 @@
     subs MD_CopyTo_VDP,0,0
   name "MD_CopyTo_VDP","Source Address,Length,Dest Address,Auto Increment"	
 	
+  astatement
+    args long,long,long,long,long,long
+    libs
+    subs MD_CopyTo_NameTable,0,0
+  name "MD_CopyTo_NameTable","Source Address,Dest Address,XSize,YSize,Source Modulo,Dest Modulo"	
+	
   afunction word
     args
 	libs

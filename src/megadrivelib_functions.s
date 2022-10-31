@@ -383,6 +383,55 @@ VDP_Copy ;Todo - unroll for performance reasons? Also offer a long-length soluti
 	RTS
 	
 ;D0 = The source address
+;D1 = The destination address
+;D2 = X Tiles
+;D3 = Y Tiles
+;D4 = Source modulo
+;D5 = Destination modulo
+MD_CopyTo_NameTable
+
+	;Set the auto increment to 2
+	Move.w #$8F02,VDP_CONTROL
+	
+	;Convert the modulos to word length
+	Add.w D4,D4
+	Add.w D5,D5
+	
+	SubQ #1,D2; Subtract one from the loop sizes
+	SubQ #1,D3; 
+	
+	;Store the original destination in A1
+	Move.l D1,A1
+
+MD_CopyTo_NameTable_LoopY
+
+	;Could be improved - calculate the destination address?
+	Move.l A1,D1
+	Move.l D1,D6
+	And.w #$3fff,D1
+	SWAP D1
+	
+	And.w #$c000,D6
+	LSR #7,D6
+	LSR #7,D6	
+	Or.w D6,D1
+	Or.l #$40000000,D1
+    move.l D1,VDP_CONTROL
+	
+	;The actual copy
+	Move.l D0,A0
+	Move.w D2,D7
+MD_CopyTo_NameTable_LoopX ;Todo - unroll for performance reasons? Also offer a long-length solution?
+	Move.w (A0)+,VDP_DATA
+	dbra D7,MD_CopyTo_NameTable_LoopX
+
+	Add.l D4,D0 ;Update the source address
+	Add.l D5,A1 ;Update the destination address
+	dbra D3,MD_CopyTo_NameTable_LoopY
+	RTS
+
+	
+;D0 = The source address
 ;D1 = The pattern index
 ;D2 = The number of patterns
 MD_LoadPatterns:
