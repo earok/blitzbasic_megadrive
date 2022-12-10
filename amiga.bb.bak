@@ -1,0 +1,152 @@
+DEFTYPE .w
+
+#XRes = 320
+#YRes = 256
+
+#TilemapWidth = 128
+#TilemapHeight = 128
+#MWidth = 512
+#MHeight = 512
+
+Macro Setup
+
+    InitPalette 1,16
+    LoadPalette 0,"palette.amiga"
+    BitMap 0,#TilemapWidth,#TilemapHeight,4
+    LoadBitmap 0,"tiles.amiga"
+
+    for TileY = 0 to #TilemapHeight / 16 - 1
+        for TileX = 0 to #TilemapWidth / 16 - 1
+            GetaShape 0,TileX*16,TileY*16,16,16
+            GetaSprite SpriteID,0
+            SpriteID + 1
+        next
+    next
+
+    BitMap 1,#MWidth,#MHeight,4
+    Dim Tiles.b(#MWidth/16 - 1,#MHeight/16 - 1)
+
+    if ReadFile(0,"nametable.amiga")
+        ReadMem 0,&Tiles(0,0),(#MWidth/16) * (#MHeight/16)
+        CloseFile 0
+    endif
+
+    BLITZ
+    InitCopList 0,44,#YRes,$10 + $4,8,16,0
+    !Fade_Palette{0}
+    CreateDisplay 0
+
+    Use Bitmap 1
+    for TileY = 0 to #MWidth/16 - 1
+        for TileX = 0 to #MHeight / 16 -1
+
+            SourceTileX = (Tiles(TileX,TileY) mod (#MWidth / 16)) * 16
+            SourceTileY = (Tiles(TileX,TileY) / (#MHeight / 16)) * 16
+            BlockScroll SourceTileX,SourceTileY,16,16,TileX*16,TileY*16,0
+
+        next
+    next
+
+    DisplayBitMap 0,1
+End macro
+
+Macro Fade_Palette
+    FadePalette 0,1,`1
+    DisplayPalette 0,1
+End Macro
+
+Macro WaitForVBlank
+    VWait
+End Macro
+
+Function.w ReadJoy{}
+    Result.w
+    
+    if JoyY(1)
+        if JoyY(1) < 0
+            Result BITSET 0
+        else
+            Result BITSET 1
+        endif
+    endif
+
+    if JoyX(1)
+        if JoyX(1) < 0
+            Result BITSET 2
+        else
+            Result BITSET 3
+        endif
+    endif
+
+    if JoyB(1)
+        Result BITSET 4
+    endif
+    
+	Function Return Result
+
+End Statement
+
+Macro ScrollCamera
+    DisplayBitMap 0,1,`1,`2
+End Macro
+
+;This is the main game file, shared between Mega Drive and Amiga
+;All code in here should be abstracted to work with both Amiga and Mega Drive
+
+;SACBRLDU
+#GamePad_Up = 0
+#GamePad_Down = 1
+#GamePad_Left = 2
+#GamePad_Right = 3
+#GamePad_B = 4
+#GamePad_C = 5
+#GamePad_A = 6
+#GamePad_Start = 7
+
+#IsTrue = -1 ;Don't use the "TRUE" or "FALSE" keywords
+#IsFalse = 0
+
+CameraX.q = 0
+CameraY.q = 0
+
+.Game
+;Fade to nothing
+!Setup
+!Fade_Palette{0}
+
+;Fade in the palette over a second before starting game
+for i = 1 to 50 
+    !WaitForVBlank
+    !Fade_Palette{i/50}
+next
+
+While #IsTrue
+
+    Joy.w = ReadJoy{}
+
+    if Joy BITTST #GamePad_Right
+        CameraX + 1
+    else
+        if Joy BITTST #GamePad_Left
+            CameraX - 1
+        endif
+    endif
+
+    if Joy BITTST #GamePad_Down
+        CameraY + 1
+    else
+        if Joy BITTST #GamePad_Up
+            CameraY - 1
+        endif
+    endif    
+
+    CameraX = QLimit(CameraX,0,512-#XRes)
+    CameraY = QLimit(CameraY,0,512-#YRes)   
+
+    !WaitForVBlank
+    !ScrollCamera{CameraX,CameraY}
+    DisplaySprite 0,1,32,32,0
+    
+Wend
+
+__end

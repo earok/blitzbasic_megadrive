@@ -1,0 +1,3 @@
+join header.bb amiga_header.bb game.bb to=amiga.bb
+blitz2:blitz2 amiga.bb
+quit

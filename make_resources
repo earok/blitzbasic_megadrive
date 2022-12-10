@@ -1,0 +1,3 @@
+join header.bb resourceimporter_header.bb to=resourceimporter.bb
+blitz2:blitz2 resourceimporter.bb
+quit

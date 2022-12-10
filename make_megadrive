@@ -1,0 +1,4 @@
+join header.bb megadrive_header.bb game.bb to=megadrive.bb
+blitz2:blitz2 megadrive.bb
+blitz2sega megadrive megadrive.rom
+quit

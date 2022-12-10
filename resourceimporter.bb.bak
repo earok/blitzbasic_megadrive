@@ -1,0 +1,22 @@
+#TilemapWidth = 128
+#TilemapHeight = 128
+
+;The resource importer imports the CSV and IFF, converting for both Mega Drive and Amiga formats
+BitMap 0,128,128,4
+LoadBitMap 0,"resources/tilemap.iff",0
+
+;Do the palette first - doesn't take into account VDP ramp
+InitBank 0,16 * 2,0
+
+BankAddress.l = Bank(0)
+PaletteInfo 0
+for i = 0 to 15
+    R = PalRed(i)
+    G = PalGreen(i)
+    B = PalBlue(i)
+    Poke.w BankAddress,(B LSL 8) | (G LSL 4) | R
+    BankAddress + 2
+next
+SaveBank 0,"palette.megadrive"
+SavePalette 0,"palette.amiga"
+End

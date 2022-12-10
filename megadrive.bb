@@ -1,5 +1,27 @@
+DEFTYPE.w
+
+;SACBRLDU
+#GamePad_Up = 0
+#GamePad_Down = 1
+#GamePad_Left = 2
+#GamePad_Right = 3
+#GamePad_B = 4
+#GamePad_C = 5
+#GamePad_A = 6
+#GamePad_Start = 7
+
+#IsTrue = -1 ;Don't use the "TRUE" or "FALSE" keywords, these trigger the addition of the MATHFFP library
+#IsFalse = 0
+
+#FirstSprite = 8
+
+#TilemapWidth = 128
+#TilemapHeight = 128
+#MWidth = 512
+#MHeight = 512
 ;adapted from https://blog.bigevilcorporation.co.uk/2012/03/23/sega-megadrive-4-hello-world/
-DefType .w
+#XRes = 320
+#YRes = 224
 
 	; ******************************************************************
 	; Sega Megadrive ROM header
@@ -167,31 +189,133 @@ Exception:
 	MD_Stop
 	
 ;At least one variable must be present, otherwise Blitz2Sega will mess up
-;Use MD_True or a constant like -1 rather than True - using "True" will attempt to add an Amiga library!
+;Use a constant like -1 rather than True - using "True" will attempt to add an Amiga library!
+
+Pal: IncBin "palette.megadrive"
+Tiles: IncBin "tiles.megadrive"
+NameTable: IncBin "nametable.megadrive"
+
+Macro Setup
+	MD_LoadPatterns ?Tiles,0,256
+	MD_SetPlaneSize 1,1 ;512 * 512
+	MD_ModeRegister4 -1 ;320 wide
+	MD_SetPlaneANameTable $C000
+	MD_SetPlaneBNameTable $C000
+	MD_CopyTo_VDP_W ?NameTable,$2000,$C000,2
+End Macro
+
+Macro WaitForVBlank
+	MD_VWait
+End Macro
+
+Macro Fade_Palette
+	MD_FadePalette ?Pal,0,16,`1
+End Macro
+
+Function.w ReadJoy{}
+	Function Return MD_GamePad1_3Button
+End Statement
+
+Macro ScrollCamera
+	MD_Scroll `1,`2,`1,`2,$FC00
+End Macro
+
+NEWTYPE .MegaDriveSprite
+	Y.w
+	Size.b
+	NextSprite.b
+	TileId.w
+	X.w
+End NEWTYPE
 
 __main:
-	MD_FadePalette ?Pal,0,64,0 ;Fade the palette to nothing
+	Dim MDSprites.MegaDriveSprite(1)
 
-	MD_SetPlaneSize 1,0 ;512 * 256
-	MD_ModeRegister4 MD_True ;320 wide
-	MD_LoadPatterns ?Patterns,0,(?NameTable - ?Patterns) / 32
-	MD_CopyTo_NameTable ?NameTable,$c000,40,32,40,64
-	
-	
-	;Fade in
-	for i = 0 to 100
-		MD_FadePalette ?Pal,0,64,i / 100
-		MD_VWait 1
-	next	
+	Statement RenderSprite{SpriteID,X,Y}
 
-.GameLoop
-	MD_VWait
-	Goto GameLoop
-	
-Pal: IncBin out.pal
-Patterns: IncBin out.pat
-NameTable: IncBin out.nt
+		Shared MDSprites.MegaDriveSprite()
+		MDSprites(0)\TileId = SpriteID * 4
+		MDSprites(0)\Size = %101
+		MDSprites(0)\X = 128 + X
+		MDSprites(0)\Y = 128 + Y
+		MD_CopyTo_VDP_W &MDSprites(0),SizeOf .MegaDriveSprite,$E000,2
 
-	 
+	End Statement
+
+	Goto Game
+;This is the main game file, shared between Mega Drive and Amiga
+;All code in here should be abstracted to work with both Amiga and Mega Drive
+.Game
+CameraX.q = 0
+CameraY.q = 0
+
+PlayerX.q = 64
+PlayerY.q = 64
+
+WalkCycle.q = 0
+PlayerDirection.w = 0
+
+;Replacement for QLimit function that don't rely on external libraries
+Function.q Limit{Value.q,MinValue.q,MaxValue.q}
+    if Value < MinValue
+        Function Return MinValue
+    endif
+    if Value > MaxValue
+        Function Return MaxValue
+    endif
+    Function return Value
+End Function
+
+;Fade to nothing
+!Setup
+!Fade_Palette{0}
+RenderSprite{#FirstSprite,PlayerX - CameraX,PlayerY - CameraY}
+
+;Fade in the palette over a second before starting game
+for i = 1 to 50 
+    !WaitForVBlank
+    !Fade_Palette{i/50}
+next
+
+While #IsTrue
+
+    Joy.w = ReadJoy{}
+
+    if Joy BITTST #GamePad_Right
+        PlayerX + 1
+        PlayerDirection = 2
+        WalkCycle + .1
+    else
+        if Joy BITTST #GamePad_Left
+            PlayerX - 1
+            PlayerDirection = 3
+            WalkCycle + .1
+        endif
+    endif
+
+    if Joy BITTST #GamePad_Down
+        PlayerY + 1
+        PlayerDirection = 1
+        WalkCycle + .1
+    else
+        if Joy BITTST #GamePad_Up
+            PlayerY - 1
+            PlayerDirection = 0
+            WalkCycle + .1
+        endif
+    endif    
+
+    CameraX = Limit{PlayerX - #XRes / 2,0,512-#XRes}
+    CameraY = Limit{PlayerY - #YRes / 2,0,512-#YRes}   
+
+    if WalkCycle >= 4
+        WalkCycle - 4
+    endif
+
+    !WaitForVBlank
+    !ScrollCamera{CameraX,CameraY}
+    RenderSprite{PlayerDirection * 4 + #FirstSprite + WalkCycle,PlayerX - CameraX,PlayerY - CameraY}
+    
+Wend
+
 __end
-

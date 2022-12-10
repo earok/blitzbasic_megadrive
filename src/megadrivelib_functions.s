@@ -16,13 +16,13 @@ MD_VWait_Frames
 VBlank_End
    move.w VDP_CONTROL,d1 ; Move VDP status word to d0
    andi.w #$0008,d1     ; AND with bit 4 (vblank), result in status register
-   beq    VBlank_End   ; Branch if equal (to zero)
+   bne    VBlank_End ; Branch if not equal (to zero)
+   DBra D0,VBlank_Start
    
 VBlank_Start
    move.w VDP_CONTROL,d1 ; Move VDP status word to d0
    andi.w #$0008,d1     ; AND with bit 4 (vblank), result in status register
-   bne    VBlank_Start ; Branch if not equal (to zero)
-   DBra D0,VBlank_End
+   beq    VBlank_Start   ; Branch if equal (to zero)
    rts
 
 ;Do the stuff here!
@@ -358,24 +358,22 @@ MD_SetBackgroundColor
 ;D0 = Source address
 ;D1 = length
 ;D2 = Dest Address
-;D3 = Auto increment
-MD_CopyTo_VDP	
-	or.w #$8F00,D3
-	Move.w D3,VDP_CONTROL
+MD_CopyTo_VDP_W
+	Move.w #$8F02,VDP_CONTROL
 
 	Move.l D2,D3
 	And.w #$3fff,D2
 	SWAP D2
 	
-	And.w #$c000,D3
-	LSR #7,D3
-	LSR #7,D3	
+	ROL.w #2,D3
+	And.w #$3,D3
 	Or.w D3,D2
 	Or.l #$40000000,D2
     move.l D2,VDP_CONTROL
 	
 	;The actual copy
 	Move.l D0,A0
+	LSR.l #1,D1 ;Half the length - since we're copying word length
 	SubQ #1,D1
 VDP_Copy ;Todo - unroll for performance reasons? Also offer a long-length solution?
 	Move.w (A0)+,VDP_DATA
@@ -411,9 +409,8 @@ MD_CopyTo_NameTable_LoopY
 	And.w #$3fff,D1
 	SWAP D1
 	
-	And.w #$c000,D6
-	LSR #7,D6
-	LSR #7,D6	
+	ROL.w #2,D6
+	And.w #$3,D6
 	Or.w D6,D1
 	Or.l #$40000000,D1
     move.l D1,VDP_CONTROL
@@ -430,6 +427,78 @@ MD_CopyTo_NameTable_LoopX ;Todo - unroll for performance reasons? Also offer a l
 	dbra D3,MD_CopyTo_NameTable_LoopY
 	RTS
 
+
+;D0 = Foreground scroll X
+;D1 = Foreground scroll y
+;D2 = Background scroll x
+;D3 = Background scroll y
+;D4 = HScroll Write
+MD_Scroll:
+
+	;X Scroll is negative
+	NEG.w D0
+	NEG.w D2
+
+	;Combine the words for scrolling
+	SWAP D0
+	Move.w D2,D0
+	SWAP D1
+	Move.w D3,D1
+
+	;Todo - make this part a macro?
+	Move.l D4,D5
+	And.w #$3fff,D4
+	SWAP D4	
+	ROL.w #2,D5
+	And.w #$3,D5
+	Or.w D5,D4
+	Or.l #$40000000,D4
+    move.l D4,VDP_CONTROL
+	move.l D0,VDP_DATA ;Load the X position
+
+	;Write to the first two words of VSRAM
+	move.l #$40000010,VDP_CONTROL
+	move.l D1,VDP_DATA ;Load the Y position
+	RTS
+
+
+MD_GamePad1_3Button
+	moveq	#$40,d0
+	move.b	d0,($A10009).l	; TH pin to write, others to read
+	move.b	d0,($A10003).l	; TH to 1
+	nop
+	nop
+	move.b	($A10003).l,d0
+	andi.b	#$3F,d0		; d0 = 00CBRLDU
+	moveq	#0,d1
+	move.b	#0,($A10003).l	; TH to 0
+	nop
+	nop
+	move.b	($A10003).l,d1
+	andi.b	#$30,d1		; d1 = 00SA0000
+	lsl.b	#2,d1		; d1 = SA000000
+	or.b	d1,d0		; d0 = SACBRLDU
+	not.w	d0
+	RTS
+
+MD_GamePad2_3Button
+	moveq	#$40,d0
+	move.b	d0,($A1000B).l	; TH pin to write, others to read
+	move.b	d0,($A10005).l	; TH to 1
+	nop
+	nop
+	move.b	($A10005).l,d0
+	andi.b	#$3F,d0		; d0 = 00CBRLDU
+	moveq	#0,d1
+	move.b	#0,($A10005).l	; TH to 0
+	nop
+	nop
+	move.b	($A10005).l,d1
+	andi.b	#$30,d1		; d1 = 00SA0000
+	lsl.b	#2,d1		; d1 = SA000000
+	or.b	d1,d0		; d0 = SACBRLDU
+	not.w	d0
+	RTS
 	
 ;D0 = The source address
 ;D1 = The pattern index
@@ -443,10 +512,26 @@ MD_LoadPatterns:
 	
 	;Let the VDP copy function do the rest
 	EXG D2,D1
-	MoveQ #2,D3
 	;Jmp rather than JSR as MD_CopyTo_VDP will take care of the rest
-	JMP MD_CopyTo_VDP
-	
+	JMP MD_CopyTo_VDP_W
+
+;D0 = The name table address	
+MD_SetPlaneANameTable
+	;Move right 10
+	LSR #8,D0
+	LSR #2,D0
+	Add.w #$8200,D0
+	move.w D0,VDP_CONTROL
+	RTS
+
+;D0 = The name table address	
+MD_SetPlaneBNameTable
+	;Move right 13
+	LSR #8,D0
+	LSR #5,D0
+	Add.w #$8400,D0
+	move.w D0,VDP_CONTROL
+	RTS
 	
 MD_True:
 	MoveQ #-1,D0

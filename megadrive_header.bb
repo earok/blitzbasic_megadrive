@@ -1,5 +1,6 @@
 ;adapted from https://blog.bigevilcorporation.co.uk/2012/03/23/sega-megadrive-4-hello-world/
-DefType .w
+#XRes = 320
+#YRes = 224
 
 	; ******************************************************************
 	; Sega Megadrive ROM header
@@ -166,129 +167,58 @@ VBlankInterrupt:
 Exception:
 	MD_Stop
 	
-#Space = 0
-#H = 1
-#E = 2
-#L = 3
-#O = 4
-#W = 5
-#R = 6
-#D = 7
-
 ;At least one variable must be present, otherwise Blitz2Sega will mess up
-;Use MD_True or a constant like -1 rather than True - using "True" will attempt to add an Amiga library!
-MyVar.l = MD_True
+;Use a constant like -1 rather than True - using "True" will attempt to add an Amiga library!
+
+Pal: IncBin "palette.megadrive"
+Tiles: IncBin "tiles.megadrive"
+NameTable: IncBin "nametable.megadrive"
+
+Macro Setup
+	MD_LoadPatterns ?Tiles,0,256
+	MD_SetPlaneSize 1,1 ;512 * 512
+	MD_ModeRegister4 -1 ;320 wide
+	MD_SetPlaneANameTable $C000
+	MD_SetPlaneBNameTable $C000
+	MD_CopyTo_VDP_W ?NameTable,$2000,$C000,2
+End Macro
+
+Macro WaitForVBlank
+	MD_VWait
+End Macro
+
+Macro Fade_Palette
+	MD_FadePalette ?Pal,0,16,`1
+End Macro
+
+Function.w ReadJoy{}
+	Function Return MD_GamePad1_3Button
+End Statement
+
+Macro ScrollCamera
+	MD_Scroll `1,`2,`1,`2,$FC00
+End Macro
+
+NEWTYPE .MegaDriveSprite
+	Y.w
+	Size.b
+	NextSprite.b
+	PatternId.w
+	X.w
+End NEWTYPE
 
 __main:
-	MD_FadePalette ?Pal,0,16,0 ;Fade the palette to nothing
-	MD_LoadPatterns ?Characters,1,7 ;Load the characters below
-	MD_CopyTo_VDP ?CharacterString,11,$C000,2 ;Set the VDP to write to $C000 (plane A address) in video memory. Auto Increment 2
+	Dim MDSprites.MegaDriveSprite(1)
 
-	;Fade in
-	for i = 0 to 100
-		MD_FadePalette ?Pal,0,16,i / 100
-		MD_VWait 1
-	next
+	Statement RenderSprite{SpriteId,X,Y}
 
-.GameLoop
-		MD_VWait
-	Goto GameLoop
-	
-Pal:
-   dc.w $0000 ; Colour 0 - Transparent
-   dc.w $000E ; Colour 1 - Red
-   dc.w $00E0 ; Colour 2 - Green
-   dc.w $0E00 ; Colour 3 - Blue
-   dc.w $0000 ; Colour 4 - Black
-   dc.w $0EEE ; Colour 5 - White
-   dc.w $00EE ; Colour 6 - Yellow
-   dc.w $008E ; Colour 7 - Orange
-   dc.w $0E0E ; Colour 8 - Pink
-   dc.w $0808 ; Colour 9 - Purple
-   dc.w $0444 ; Colour A - Dark grey
-   dc.w $0888 ; Colour B - Light grey
-   dc.w $0EE0 ; Colour C - Turquoise
-   dc.w $000A ; Colour D - Maroon
-   dc.w $0600 ; Colour E - Navy blue
-   dc.w $0060 ; Colour F - Dark green
-   
-CharacterString:
-	dc.w #H
-	dc.w #E
-	dc.w #L
-	dc.w #L
-	dc.w #O
-	dc.w #Space
-	dc.w #W
-	dc.w #O
-	dc.w #R
-	dc.w #L
-	dc.w #D
-	
-Characters:
-   dc.l $11000110 ; Character 0 - H
-   dc.l $11000110
-   dc.l $11000110
-   dc.l $11111110
-   dc.l $11000110
-   dc.l $11000110
-   dc.l $11000110
-   dc.l $00000000
- 
-   dc.l $11111110 ; Character 1 - E
-   dc.l $11000000
-   dc.l $11000000
-   dc.l $11111110
-   dc.l $11000000
-   dc.l $11000000
-   dc.l $11111110
-   dc.l $00000000
- 
-   dc.l $11000000 ; Character 2 - L
-   dc.l $11000000
-   dc.l $11000000
-   dc.l $11000000
-   dc.l $11000000
-   dc.l $11111110
-   dc.l $11111110
-   dc.l $00000000
- 
-   dc.l $01111100 ; Character 3 - O
-   dc.l $11101110
-   dc.l $11000110
-   dc.l $11000110
-   dc.l $11000110
-   dc.l $11101110
-   dc.l $01111100
-   dc.l $00000000
- 
-   dc.l $11000110 ; Character 4 - W
-   dc.l $11000110
-   dc.l $11000110
-   dc.l $11000110
-   dc.l $11010110
-   dc.l $11101110
-   dc.l $11000110
-   dc.l $00000000
- 
-   dc.l $11111100 ; Character 5 - R
-   dc.l $11000110
-   dc.l $11001100
-   dc.l $11111100
-   dc.l $11001110
-   dc.l $11000110
-   dc.l $11000110
-   dc.l $00000000
- 
-   dc.l $11111000 ; Character 6 - D
-   dc.l $11001110
-   dc.l $11000110
-   dc.l $11000110
-   dc.l $11000110
-   dc.l $11001110
-   dc.l $11111000
-   dc.l $00000000
+		Shared MDSprites.MegaDriveSprite()
+		MDSprites(0)\PatternId = SpriteId * 4
+		MDSprites(0)\Size = %101
+		MDSprites(0)\X = 128 + X
+		MDSprites(0)\Y = 128 + Y
+		MD_CopyTo_VDP_W &MDSprites(0),SizeOf .MegaDriveSprite,$E000,2
 
-	 
-__end
+	End Statement
 
+	Goto Game

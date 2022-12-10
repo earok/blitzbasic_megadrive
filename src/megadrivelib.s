@@ -41,7 +41,7 @@
     args byte
     libs
     subs MD_ModeRegister4,0,0	
-  name "MD_ModeRegister4","Width (MD_TRUE=320,MD_FALSE=256)"
+  name "MD_ModeRegister4","Width (-1=320,0=256)"
 	
   astatement
     args long,long,long
@@ -52,8 +52,8 @@
   astatement
     args long,long,long,long
     libs
-    subs MD_CopyTo_VDP,0,0
-  name "MD_CopyTo_VDP","Source Address,Length,Dest Address,Auto Increment"	
+    subs MD_CopyTo_VDP_W,0,0
+  name "MD_CopyTo_VDP_W","Source Address,Length,Dest Address,Auto Increment"	
 	
   astatement
     args long,long,long,long,long,long
@@ -61,6 +61,12 @@
     subs MD_CopyTo_NameTable,0,0
   name "MD_CopyTo_NameTable","Source Address,Dest Address,XSize,YSize,Source Modulo,Dest Modulo"	
 	
+  astatement
+    args word,word,word,word,long
+    libs
+    subs MD_Scroll,0,0
+  name "MD_Scroll","FG X,FG Y,BG X,BG Y,HScroll Table Address"	
+
   afunction word
     args
 	libs
@@ -91,17 +97,29 @@
     subs MD_Fake_AllocMem,0,0	
   name "MD_Fake_AllocMem","A fake version of Exec.Library's AvailMem function"
 
-  afunction long
+  afunction word
 	args
 	libs
-	subs MD_True,0,0
-  name "MD_True","Substitute for Amiga true"
+	subs MD_GamePad1_3Button,0,0
+  name "MD_GamePad1_3Button","Button State for GamePad 1 - SACBRLDU"
 
-  afunction long
+  afunction word
 	args
 	libs
-	subs MD_False,0,0
-  name "MD_False","Substitute for Amiga false"
+	subs MD_GamePad2_3Button,0,0
+  name "MD_GamePad2_3Button","Button State for GamePad 2 - SACBRLDU"
+
+  astatement
+	args long
+	libs
+	subs MD_SetPlaneANameTable,0,0
+  name "MD_SetPlaneANameTable","Set the address of Plane A Name Table"
+
+  astatement
+	args long
+	libs
+	subs MD_SetPlaneBNameTable,0,0
+  name "MD_SetPlaneBNameTable","Set the address of Plane B Name Table"
 
 blitz_finit:
 	nullsub _blitz_ahx_lib_finit,0,0
