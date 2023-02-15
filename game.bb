@@ -68,6 +68,7 @@ While #IsTrue
     endif
 
     !WaitForVBlank
+	MD_MDSDRV_Update &WorkArea
     !ScrollCamera{CameraX,CameraY}
     RenderSprite{PlayerDirection * 4 + #FirstSprite + WalkCycle,PlayerX - CameraX,PlayerY - CameraY}
     

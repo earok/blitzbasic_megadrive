@@ -182,9 +182,6 @@ EntryPoint:           ; Entry point address set in ROM header
 HBlankInterrupt:
    rte   ; Return from Subroutine
 
-VBlankInterrupt:
-   rte   ; Return from Subroutine
-
 Exception:
 	MD_Stop
 	
@@ -195,13 +192,16 @@ Pal: IncBin "palette.megadrive"
 Tiles: IncBin "tiles.megadrive"
 NameTable: IncBin "nametable.megadrive"
 
+MDSSeq: IncBin "mdsseq.bin"
+MDSPCM: IncBin "mdspcm.bin"
+
 Macro Setup
 	MD_LoadPatterns ?Tiles,0,256
 	MD_SetPlaneSize 1,1 ;512 * 512
 	MD_ModeRegister4 -1 ;320 wide
 	MD_SetPlaneANameTable $C000
 	MD_SetPlaneBNameTable $C000
-	MD_CopyTo_VDP_W ?NameTable,$2000,$C000,2
+	MD_CopyTo_VDP ?NameTable,$2000,$C000,2
 End Macro
 
 Macro WaitForVBlank
@@ -224,25 +224,41 @@ NEWTYPE .MegaDriveSprite
 	Y.w
 	Size.b
 	NextSprite.b
-	TileId.w
+	PatternId.w
 	X.w
 End NEWTYPE
 
+NEWTYPE .MDSWorkArea
+	Area.b[1024]
+End NEWTYPE
+
 __main:
+	DefTYPE .MDSWorkArea WorkArea
 	Dim MDSprites.MegaDriveSprite(1)
 
-	Statement RenderSprite{SpriteID,X,Y}
+	for i = 0 to 1023
+		WorkArea\Area[i]=0
+	next
+
+	while MD_MDSDRV_Init(&WorkArea,?MDSSeq,?MDSPCM)
+	wend
+	MD_MDSDRV_Request 1,3,&WorkArea
+	
+	Statement RenderSprite{SpriteId,X,Y}
 
 		Shared MDSprites.MegaDriveSprite()
-		MDSprites(0)\TileId = SpriteID * 4
+		MDSprites(0)\PatternId = SpriteId * 4
 		MDSprites(0)\Size = %101
 		MDSprites(0)\X = 128 + X
 		MDSprites(0)\Y = 128 + Y
-		MD_CopyTo_VDP_W &MDSprites(0),SizeOf .MegaDriveSprite,$E000,2
+		MD_CopyTo_VDP &MDSprites(0),SizeOf .MegaDriveSprite,$E000,2
 
 	End Statement
 
 	Goto Game
+
+VBlankInterrupt:
+   rte   ; Return from Subroutine
 ;This is the main game file, shared between Mega Drive and Amiga
 ;All code in here should be abstracted to work with both Amiga and Mega Drive
 .Game
@@ -313,6 +329,7 @@ While #IsTrue
     endif
 
     !WaitForVBlank
+	MD_MDSDRV_Update &WorkArea
     !ScrollCamera{CameraX,CameraY}
     RenderSprite{PlayerDirection * 4 + #FirstSprite + WalkCycle,PlayerX - CameraX,PlayerY - CameraY}
     

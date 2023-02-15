@@ -119,6 +119,7 @@ MD_Setup
 	move.l #$00FF0000,a0     ; Move address of first byte of ram (contains zero, RAM has been cleared) to a0
 	movem.l (a0),d0-d7/a1-a6  ; Multiple move zero to all registers
 	move.l #$00000000,a0     ; Clear a0
+
 	; Init status register (no trace, A7 is Interrupt Stack Pointer, no interrupts, clear condition code bits)
 	move #$2700,sr
 
@@ -230,6 +231,9 @@ MD_Stop
 	
 ;MD_Fake_AllocAbs:			;Not implemented at all!
 ;	RTS				;d8: 4e75
+
+Halter:
+	Bra Halter
 
 MD_Fake_AllocMem:
 	ADDQ.L	#7,D0			;30: 5e80
@@ -358,9 +362,8 @@ MD_SetBackgroundColor
 ;D0 = Source address
 ;D1 = length
 ;D2 = Dest Address
-MD_CopyTo_VDP_W
-	Move.w #$8F02,VDP_CONTROL
-
+MD_CopyTo_VDP
+	Move.w #$8F02,VDP_CONTROL ;Set to word length
 	Move.l D2,D3
 	And.w #$3fff,D2
 	SWAP D2
@@ -370,14 +373,55 @@ MD_CopyTo_VDP_W
 	Or.w D3,D2
 	Or.l #$40000000,D2
     move.l D2,VDP_CONTROL
-	
-	;The actual copy
-	Move.l D0,A0
-	LSR.l #1,D1 ;Half the length - since we're copying word length
+
+VDP_COPY_L_START
+	Move.l D1,D3
+	Move.l D0,A0	
+	LSR.l #5,D1 ;Divide by 32, since we copy 8x long words at a time (the size of 1x pattern)
 	SubQ #1,D1
-VDP_Copy ;Todo - unroll for performance reasons? Also offer a long-length solution?
+	BLT VDP_Copy_L4
+
+VDP_COPY_L8
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA	
+	DBra D1,VDP_COPY_L8
+
+VDP_Copy_L4
+	BTST #4,D3 ;Do we need to copy four long words
+	BEQ VDP_Copy_L2
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA	
+
+VDP_Copy_L2
+	BTST #3,D3 ;Do we need to copy two long words
+	BEQ VDP_Copy_L
+	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,VDP_DATA
+
+VDP_Copy_L 
+	BTST #2,D3 ;Do we need to copy a single long word
+	BEQ VDP_Copy_W
+	Move.l (A0)+,VDP_DATA
+
+VDP_Copy_W
+	BTST #1,D3 ;Do we need to copy a word
+	BEQ VDP_COPY_B
 	Move.w (A0)+,VDP_DATA
-	dbra D1,VDP_Copy
+
+VDP_COPY_B
+	BTST #0,D3 ;Do we need to copy a byte
+	BEQ VDP_COPY_DONE
+	Move.b (A0)+,VDP_DATA
+
+VDP_COPY_DONE
 	RTS
 	
 ;D0 = The source address
@@ -507,13 +551,13 @@ MD_LoadPatterns:
 	;Convert the pattern number into the memory offset
 	LSL #5,D1
 	
-	;Multiply the number of patterns by 16 (32 bytes / 16 words / 8 long words)
-	LSL #4,D2
+	;Multiply the number of patterns by 32
+	LSL #5,D2
 	
 	;Let the VDP copy function do the rest
 	EXG D2,D1
 	;Jmp rather than JSR as MD_CopyTo_VDP will take care of the rest
-	JMP MD_CopyTo_VDP_W
+	JMP MD_CopyTo_VDP
 
 ;D0 = The name table address	
 MD_SetPlaneANameTable
@@ -540,4 +584,37 @@ MD_True:
 MD_False:
 	MoveQ #0,D0
 	RTS
+	
+;D0 = Work area of at least 1062 bytes
+;D1 = Sequence Data
+;D2 = PCM data
+MD_MDSDRV_Init:
+    movem.l a0-a6,-(SP)
+	Move.l D0,A0
+	Move.l D1,A1
+	Move.l D2,A2
+	JSR MDSDRV
+    movem.l (SP)+,a0-a6	
+	RTS
+	
+;D0 = Work area of at least 1062 bytes
+MD_MDSDRV_Update:
+    movem.l a0-a6,-(SP)	
+	Move.l D0,A0
+	JSR MDSDRV+4
+    movem.l (SP)+,a0-a6		
+	RTS
+	
+;D0 = Sound number
+;D1 = Priority level
+;D2 = Work area of at least 1062 bytes
+MD_MDSDRV_Request:
+    movem.l a0-a6,-(SP)	
+	Move.l D2,A0
+	JSR MDSDRV+8
+    movem.l (SP)+,a0-a6	
+	RTS
+	
+MDSDRV:
+	incbin "mdsdrv.bin"
 	

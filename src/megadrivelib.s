@@ -52,8 +52,8 @@
   astatement
     args long,long,long,long
     libs
-    subs MD_CopyTo_VDP_W,0,0
-  name "MD_CopyTo_VDP_W","Source Address,Length,Dest Address,Auto Increment"	
+    subs MD_CopyTo_VDP,0,0
+  name "MD_CopyTo_VDP","Source Address,Length,Dest Address,Auto Increment"	
 	
   astatement
     args long,long,long,long,long,long
@@ -120,6 +120,24 @@
 	libs
 	subs MD_SetPlaneBNameTable,0,0
   name "MD_SetPlaneBNameTable","Set the address of Plane B Name Table"
+
+  afunction word
+	args long,long,long
+	libs
+	subs MD_MDSDRV_Init,0,0
+  name "MD_MDSDRV_Init","Work area of >= 1062 bytes,Sequence pointer,PCM data pointer"
+
+  astatement
+	args long
+	libs
+	subs MD_MDSDRV_Update,0,0
+  name "MD_MDSDRV_Update","Work area of >= 1062 bytes"
+
+  astatement
+	args long,long,long
+	libs
+	subs MD_MDSDRV_Request,0,0
+  name "MD_MDSDRV_Request","Sound number,priority level,Work area of >= 1062 bytes"
 
 blitz_finit:
 	nullsub _blitz_ahx_lib_finit,0,0
