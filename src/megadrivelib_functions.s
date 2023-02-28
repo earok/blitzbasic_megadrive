@@ -354,6 +354,13 @@ MD_SetPlaneSize
 	move.w D0,VDP_CONTROL
 	RTS
 	
+MD_SetHorizontalScrollTable
+	moveq #10,D1
+	lsr.w D1,D0
+	or.w #$8D00,D0
+	move.w D0,VDP_CONTROL
+	RTS	
+	
 MD_SetBackgroundColor
 	or.w #$8700,D0
 	move.w D0,VDP_CONTROL
