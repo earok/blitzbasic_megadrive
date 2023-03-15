@@ -73,6 +73,11 @@
     subs MD_SetHorizontalScrollTable,0,0
   name "MD_SetHorizontalScrollTable","HScroll Table Address"	
 
+  astatement
+    args word
+    libs
+    subs MD_SetSpriteTable,0,0
+  name "MD_SetSpriteTable","Sprite Table Address"	
 
   afunction word
     args

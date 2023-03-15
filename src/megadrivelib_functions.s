@@ -174,7 +174,8 @@ VDPRegisters:
    	
 	
 MD_Stop
-   stop #$2700 ; Halt CPU
+	Move #$2700,SR 	;Final setup steps ;DISABLE ALL INTERRUPTS
+   	stop #$2700 ; Halt CPU
    
 ;MD_Fake_AvailMem:
 ;	MOVE	#$2000,SR		;00: 46fc2000
@@ -360,7 +361,15 @@ MD_SetHorizontalScrollTable
 	or.w #$8D00,D0
 	move.w D0,VDP_CONTROL
 	RTS	
-	
+
+;move.w #$8500+($xxxx>>9),($c00004).l
+MD_SetSpriteTable
+	moveq #9,D1
+	lsr.w D1,D0
+	or.w #$8500,D0
+	move.w D0,VDP_CONTROL
+	RTS		
+
 MD_SetBackgroundColor
 	or.w #$8700,D0
 	move.w D0,VDP_CONTROL
@@ -529,7 +538,7 @@ MD_GamePad1_3Button
 	andi.b	#$30,d1		; d1 = 00SA0000
 	lsl.b	#2,d1		; d1 = SA000000
 	or.b	d1,d0		; d0 = SACBRLDU
-	not.w	d0
+	not.b	d0
 	RTS
 
 MD_GamePad2_3Button
@@ -548,7 +557,7 @@ MD_GamePad2_3Button
 	andi.b	#$30,d1		; d1 = 00SA0000
 	lsl.b	#2,d1		; d1 = SA000000
 	or.b	d1,d0		; d0 = SACBRLDU
-	not.w	d0
+	not.b	d0
 	RTS
 	
 ;D0 = The source address
