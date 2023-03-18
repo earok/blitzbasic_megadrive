@@ -592,7 +592,30 @@ MD_SetPlaneBNameTable
 	Add.w #$8400,D0
 	move.w D0,VDP_CONTROL
 	RTS
+
+;D0 = The name table address	
+MD_SetWindowNameTable
+	;Move right 10
+	LSR #8,D0
+	LSR #2,D0
+	Add.w #$8300,D0
+	move.w D0,VDP_CONTROL
+	RTS
 	
+MD_SetWindowPosition
+	;X Position
+	and.w #$80,D2
+	or.w D2,D0
+	or.w #$9100,D0 
+	move.w D0,VDP_CONTROL
+
+	;Y Position
+	and.w #$80,D3
+	or.w D3,D1
+	or.w #$9200,D1 
+	move.w D1,VDP_CONTROL	
+	RTS
+
 MD_True:
 	MoveQ #-1,D0
 	RTS

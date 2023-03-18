@@ -133,6 +133,18 @@
 	subs MD_SetPlaneBNameTable,0,0
   name "MD_SetPlaneBNameTable","Set the address of Plane B Name Table"
 
+  astatement
+	args long
+	libs
+	subs MD_SetWindowNameTable,0,0
+  name "MD_SetWindowNameTable","Set the address of Window Name Table"
+
+  astatement
+	args word,word,word,word
+	libs
+	subs MD_SetWindowPosition,0,0
+  name "MD_SetWindowPosition","X Offset,Y Offset,From Right,From Bottom"
+
   afunction word
 	args long,long,long
 	libs
