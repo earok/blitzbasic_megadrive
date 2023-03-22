@@ -161,19 +161,19 @@
 	args long,long,long
 	libs
 	subs MD_MDSDRV_Init,0,0
-  name "MD_MDSDRV_Init","Work area of >= 1062 bytes,Sequence pointer,PCM data pointer"
+  name "MD_MDSDRV_Init","Work area of >= 1024 bytes,Sequence pointer,PCM data pointer"
 
   astatement
 	args long
 	libs
 	subs MD_MDSDRV_Update,0,0
-  name "MD_MDSDRV_Update","Work area of >= 1062 bytes"
+  name "MD_MDSDRV_Update","Work area of >= 1024 bytes"
 
   astatement
 	args long,long,long
 	libs
 	subs MD_MDSDRV_Request,0,0
-  name "MD_MDSDRV_Request","Sound number,priority level,Work area of >= 1062 bytes"
+  name "MD_MDSDRV_Request","Sound number,priority level,Work area of >= 1024 bytes"
 
 blitz_finit:
 	nullsub _blitz_ahx_lib_finit,0,0

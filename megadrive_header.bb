@@ -207,34 +207,38 @@ NEWTYPE .MegaDriveSprite
 	X.w
 End NEWTYPE
 
-NEWTYPE .MDSWorkArea
-	Area.b[1024]
-End NEWTYPE
-
 __main:
-	DefTYPE .MDSWorkArea WorkArea
+	Dim WorkAreaArray.b(1024-1)
 	Dim MDSprites.MegaDriveSprite(1)
 
-	for i = 0 to 1023
-		WorkArea\Area[i]=0
-	next
-
-	while MD_MDSDRV_Init(&WorkArea,?MDSSeq,?MDSPCM)
+	while MD_MDSDRV_Init(&WorkAreaArray(0),?MDSSeq,?MDSPCM)
 	wend
-	MD_MDSDRV_Request 1,3,&WorkArea
-	
-	Statement RenderSprite{SpriteId,X,Y}
-
-		Shared MDSprites.MegaDriveSprite()
-		MDSprites(0)\PatternId = SpriteId * 4
-		MDSprites(0)\Size = %101
-		MDSprites(0)\X = 128 + X
-		MDSprites(0)\Y = 128 + Y
-		MD_CopyTo_VDP &MDSprites(0),SizeOf .MegaDriveSprite,$E000,2
-
-	End Statement
+	WorkArea.l = &WorkAreaArray(0)
+	MD_MDSDRV_Request 1,3,WorkArea	
 
 	Goto Game
 
 VBlankInterrupt:
-   rte   ; Return from Subroutine
+
+	;Put everything on the stack
+	MOVEM.l D0-D7/A0-A6,-(A7) 
+
+	if WorkArea
+		MD_MDSDRV_Update WorkArea
+	endif
+
+	;Pop everything from the stack
+	MOVEM.l (A7)+,D0-D7/A0-A6
+
+	rte   ; Return from Subroutine
+
+Statement RenderSprite{SpriteId,X,Y}
+
+	Shared MDSprites.MegaDriveSprite()
+	MDSprites(0)\PatternId = SpriteId * 4
+	MDSprites(0)\Size = %101
+	MDSprites(0)\X = 128 + X
+	MDSprites(0)\Y = 128 + Y
+	MD_CopyTo_VDP &MDSprites(0),SizeOf .MegaDriveSprite,$E000,2
+
+End Statement
