@@ -38,7 +38,13 @@
   name "MD_SetPlaneSize","Width,Height. 0=256 pixels 1=512pixels 3=1024pixels"
 	
   astatement
-    args byte
+    args word, word
+    libs
+    subs MD_ModeRegister2,0,0	
+  name "MD_ModeRegister2","EnableDisplay,Height (-1=240,0=224)"
+
+  astatement
+    args word
     libs
     subs MD_ModeRegister4,0,0	
   name "MD_ModeRegister4","Width (-1=320,0=256)"
@@ -48,7 +54,13 @@
     libs
     subs MD_LoadPatterns,0,0	
   name "MD_LoadPatterns","Pattern address, first pattern index, num of patterns"
-	
+		
+  astatement
+    args word,word,word,word
+    libs
+    subs MD_SetColor,0,0	
+  name "MD_SetColor","Index,Red,Green,Blue (in 1-255 range)"
+
   astatement
     args long,long,long,long
     libs

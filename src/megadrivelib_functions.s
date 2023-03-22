@@ -341,6 +341,19 @@ PalettteTransferFade:
     dbra d2,PalettteTransferFade      ; stop iterating if all of palette has been sent
 	RTS
 	
+MD_ModeRegister2
+
+	;Enable display
+	and.w #%01000000,D0
+
+	;240 tall (pal) vs 224 tall (ntsc)
+	and.w #%00001000,D1
+
+	or.w D1,D0
+	or.w #$8134,D0 ;DMA, Mega Drive mode and vertical interrupts regardless
+	move.w D0,VDP_CONTROL 
+	RTS
+
 MD_ModeRegister4
 	;Width 320 wide??
 	and.w #%10000001,D0
@@ -373,6 +386,36 @@ MD_SetSpriteTable
 MD_SetBackgroundColor
 	or.w #$8700,D0
 	move.w D0,VDP_CONTROL
+	RTS
+
+;Expects colors in 0-255 range, clamps appropriately
+;D0 = index
+;D1 = red
+;D2 = green
+;D3 = blue
+MD_SetColor
+
+	;Blue
+	LSL.w #4,D3
+	And.w #$E00,D3
+
+	;Green
+	And.w #$E0,D2
+
+	;Red
+	LSR.w #$4,D1
+	And.w #$E,D1
+
+	;Combine
+	Or.w D3,D1
+	Or.w D2,D1
+
+	;Now that the color is set..
+	LSL #1,D0 ;Convert to word length
+	Swap D0
+	Or.l #CRAM_ADDR_CMD,D0
+	move.l D0,VDP_CONTROL ;#$C0000000+($xx<<16)
+	move.w D1,VDP_DATA
 	RTS
 
 ;D0 = Source address
@@ -565,10 +608,10 @@ MD_GamePad2_3Button
 ;D2 = The number of patterns
 MD_LoadPatterns:
 	;Convert the pattern number into the memory offset
-	LSL #5,D1
+	LSL.l #5,D1
 	
 	;Multiply the number of patterns by 32
-	LSL #5,D2
+	LSL.l #5,D2
 	
 	;Let the VDP copy function do the rest
 	EXG D2,D1
