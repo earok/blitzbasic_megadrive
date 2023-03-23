@@ -193,6 +193,8 @@ Tiles: IncBin "tiles.megadrive"
 NameTable: IncBin "nametable.megadrive"
 
 MDSSeq: IncBin "mdsseq.bin"
+
+;NOTE - THIS SHOULD BE ALIGNED IN THE ROM AT A 32KB BOUNDARY. THIS ISN'T HANDLED BY THIS DEMO.
 MDSPCM: IncBin "mdspcm.bin"
 
 Macro Setup
