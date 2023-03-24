@@ -157,7 +157,7 @@
 	subs MD_SetWindowPosition,0,0
   name "MD_SetWindowPosition","X Offset,Y Offset,From Right,From Bottom"
 
-  afunction word
+  astatement
 	args long,long,long
 	libs
 	subs MD_MDSDRV_Init,0,0

@@ -44,7 +44,7 @@ Clear:
 	move.l d2,(A7)
 
 ;https://plutiedev.com/vdp-setup wiping out ALL VDP
-    move.w #$8F04,VDP_CONTROL      ; Set autoincrement to 4 bytes
+    move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 4 bytes
     moveq   #0,d0          
     
     ; Clear VRAM
@@ -67,6 +67,14 @@ Clear:
 @ClearVsram:
     move.l  d0,VDP_DATA
     dbf     d1,@ClearVsram
+
+	;Reset the Blitz Basic stack???
+	Move.l #$FF1008,$00FF1000
+	Clr.l $00FF1004
+	Clr.l $00FF1008	
+	Move.l #$DFF8,$00FF100C	
+
+
 	RTS
 
 	
@@ -122,12 +130,6 @@ MD_Setup
 
 	; Init status register (no trace, A7 is Interrupt Stack Pointer, no interrupts, clear condition code bits)
 	move #$2700,sr
-
-	Move.l #$FF1008,$00FF1000
-	Clr.l $00FF1004
-	Clr.l $00FF1008	
-	Move.l #$DFF8,$00FF100C	
-
 	RTS
 	
 ZEightyData:
