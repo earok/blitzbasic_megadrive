@@ -158,10 +158,10 @@
   name "MD_SetWindowPosition","X Offset,Y Offset,From Right,From Bottom"
 
   astatement
-	args long,long,long
+	args long,long,long,word
 	libs
 	subs MD_MDSDRV_Init,0,0
-  name "MD_MDSDRV_Init","Work area of >= 1024 bytes,Sequence pointer,PCM data pointer"
+  name "MD_MDSDRV_Init","Work area of >= 1024 bytes,Sequence pointer,PCM data pointer,DMA protection bytes"
 
   astatement
 	args long

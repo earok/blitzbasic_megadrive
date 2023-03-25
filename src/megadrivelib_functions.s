@@ -605,20 +605,94 @@ MD_GamePad2_3Button
 	not.b	d0
 	RTS
 	
+;USES DMA TRANSFER. DOES NOT TAKE INTO ACCOUNT 128KB BOUNDARY
 ;D0 = The source address
 ;D1 = The pattern index
 ;D2 = The number of patterns
 MD_LoadPatterns:
-	;Convert the pattern number into the memory offset
-	LSL.l #5,D1
-	
-	;Multiply the number of patterns by 32
-	LSL.l #5,D2
-	
-	;Let the VDP copy function do the rest
+	;Leave source address as D0
+	LSL.l #5,D1 ;Pattern index needs to be multiplied by 32
+	LSL.l #5,D2 ;Number of patterns needs to be multiplied by 32
 	EXG D2,D1
-	;Jmp rather than JSR as MD_CopyTo_VDP will take care of the rest
-	JMP MD_CopyTo_VDP
+	BRA MD_DMA_Transfer
+
+;D0 - Source address in 68K memory
+;D1 - Length
+;D2 - Destination address in VDP memory
+MD_DMA_Transfer
+
+	move.w #$8F02,VDP_CONTROL ;Set to 2 byte transfer
+
+	;Divide the source by half
+	lsr.l #1,D0	
+
+	;Divide the size by half
+	lsr.l #1,D1
+
+	;Check if crosses 128 boundary
+	Move.w D0,D7
+	Add.w D1,D7
+	BCC MD_DMA_Transfer_Ready
+
+	;Here is where we want to handle the 128 boundary
+	;How many words from start to boundary?
+	MoveQ #0,D6
+	Sub.w D0,D6  ;D6 now contains how many words we need to copy in our first run
+
+	MoveM.l D0-D3,-(sp) ;Backup our source variables
+	Move.w D6,D1 ;We want to copy the first set of words
+	JSR MD_DMA_Transfer_Ready	
+	MoveM.l (sp)+,D0-D3 ;Restore our original variables
+	Sub.l D6,D1 ;Subtract the length of words we've already copied from our length
+	Add.l D6,D0 ;Add the length of words we've already copied to our source
+
+	Add.l D6,D2 ;Add to our destination address twice
+	Add.l D6,D2
+
+MD_DMA_Transfer_Ready
+	;DMA Length lower byte
+	move.w #$9300,D3
+	move.b D1,D3
+	move.w D3,VDP_CONTROL
+
+	;DMA length upper byte
+	move.w #$9400,D3
+	lsr.w #8,D1
+	move.b D1,D3
+	move.w D3,VDP_CONTROL
+
+	;DMA source low byte
+	move.w #$9500,D3
+	move.b D0,D3
+	move.w D3,VDP_CONTROL
+
+	;DMA source middle byte
+	move.w #$9600,D3
+	lsr.l #8,D0
+	move.b D0,D3
+	move.w D3,VDP_CONTROL
+
+	;DMA source top byte
+	move.w #$9700,D3
+	lsr.l #8,D0
+	move.b D0,D3
+	move.w D3,VDP_CONTROL
+
+	;Finally, copy to destination
+	move.l #$40000080,D3
+	
+	move.w D2,D4
+	and.w #$3FFF,D4
+	swap.w D4
+	or.l D4,D3
+
+	move.w D2,D4
+	and.w #$C000,D4
+	rol.w #2,D4
+	or.w D4,D3
+
+	move.l D3,VDP_CONTROL
+	RTS
 
 ;D0 = The name table address	
 MD_SetPlaneANameTable
@@ -672,13 +746,39 @@ MD_False:
 ;D0 = Work area of at least 1062 bytes
 ;D1 = Sequence Data
 ;D2 = PCM data
+;D3 = DMA protection size in bytes (0 if none, else 40-220 with 100 recommended)
 MD_MDSDRV_Init:
-    movem.l a0-a6,-(SP)
+
 	Move.l D0,A0
 	Move.l D1,A1
 	Move.l D2,A2
+
+	Move.w D3,-(SP) ;Store DMA protection amount
+    movem.l a0-a6,-(SP) ;Store address registers
 	JSR MDSDRV
-    movem.l (SP)+,a0-a6	
+    movem.l (SP)+,a0-a6	;Restore address registers
+	Move.w (SP)+,D3 ;Restore DMA protection amount
+
+	;Wait until the Z80 is ready
+MD_MDSDRV_WaitForZ80
+	moveq	#$12,d0				; get Z80 pcm mode
+	Move.w D3,-(SP) ;Store DMA protection amount
+    movem.l a0-a6,-(SP) ;Store address registers	
+	bsr.w	MDSDRV+$0c
+    movem.l (SP)+,a0-a6	;Restore address registers
+	Move.w (SP)+,D3 ;Restore DMA protection amount	
+	tst.b	d0
+	beq.s	MD_MDSDRV_WaitForZ80	
+	
+	moveq	#$11,d0			; set_pcmmode
+	moveq	#$0,d1			; keep mixing mode
+	move.w	D3,D2			; DMA protection on
+
+    movem.l a0-a6,-(SP) ;Store address registers
+	jsr		MDSDRV+$0c
+    movem.l (SP)+,a0-a6	;Restore address registers
+
+MD_MDSDRV_Init_Finished
 	RTS
 	
 ;D0 = Work area of at least 1062 bytes
