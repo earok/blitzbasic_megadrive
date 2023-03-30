@@ -605,7 +605,6 @@ MD_GamePad2_3Button
 	not.b	d0
 	RTS
 	
-;USES DMA TRANSFER. DOES NOT TAKE INTO ACCOUNT 128KB BOUNDARY
 ;D0 = The source address
 ;D1 = The pattern index
 ;D2 = The number of patterns
@@ -614,7 +613,17 @@ MD_LoadPatterns:
 	LSL.l #5,D1 ;Pattern index needs to be multiplied by 32
 	LSL.l #5,D2 ;Number of patterns needs to be multiplied by 32
 	EXG D2,D1
-	BRA MD_DMA_Transfer
+	BRA MD_CopyTo_VDP
+
+;D0 = The source address
+;D1 = The pattern index
+;D2 = The number of patterns
+MD_LoadPatterns_DMA:
+	;Leave source address as D0
+	LSL.l #5,D1 ;Pattern index needs to be multiplied by 32
+	LSL.l #5,D2 ;Number of patterns needs to be multiplied by 32
+	EXG D2,D1
+	BRA MD_DMA_Transfer	
 
 ;D0 - Source address in 68K memory
 ;D1 - Length
@@ -680,6 +689,7 @@ MD_DMA_Transfer_Ready
 
 	;Finally, copy to destination
 	move.l #$40000080,D3
+	MoveQ #0,D4
 	
 	move.w D2,D4
 	and.w #$3FFF,D4

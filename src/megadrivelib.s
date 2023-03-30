@@ -56,6 +56,12 @@
   name "MD_LoadPatterns","Pattern address, first pattern index, num of patterns"
 		
   astatement
+    args long,long,long
+    libs
+    subs MD_LoadPatterns_DMA,0,0	
+  name "MD_LoadPatterns_DMA","Pattern address, first pattern index, num of patterns"
+
+  astatement
     args word,word,word,word
     libs
     subs MD_SetColor,0,0	
@@ -67,6 +73,12 @@
     subs MD_CopyTo_VDP,0,0
   name "MD_CopyTo_VDP","Source Address,Length,Dest Address,Auto Increment"	
 	
+  astatement
+    args long,long,long
+    libs
+    subs MD_DMA_Transfer,0,0
+  name "MD_DMA_Transfer","Source Address,Length,Dest Address"	
+
   astatement
     args long,long,long,long,long,long
     libs
