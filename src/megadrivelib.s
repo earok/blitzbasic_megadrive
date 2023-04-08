@@ -68,6 +68,18 @@
   name "MD_SetColor","Index,Red,Green,Blue (in 1-255 range)"
 
   astatement
+    args word,long
+    libs
+    subs MD_CopyTo_VDP_W,0,0
+  name "MD_CopyTo_VDP_W","Word Data,Dest Address"	
+
+  astatement
+    args long,long
+    libs
+    subs MD_CopyTo_VDP_L,0,0
+  name "MD_CopyTo_VDP_L","Word Data,Dest Address"	
+
+  astatement
     args long,long,long,long
     libs
     subs MD_CopyTo_VDP,0,0
@@ -180,6 +192,18 @@
 	libs
 	subs MD_MDSDRV_Update,0,0
   name "MD_MDSDRV_Update","Work area of >= 1024 bytes"
+
+  astatement
+	args long,long,long
+	libs
+	subs MD_MDSDRV_Volume,0,0
+  name "MD_MDSDRV_Volume","Volume (0-256), Priority, Work area of >= 1024 bytes"
+
+  astatement
+	args long,long,long
+	libs
+	subs MD_MDSDRV_GVolume,0,0
+  name "MD_MDSDRV_GVolume","Music Volume (0-256), Sound Volume (0-256), Work area of >= 1024 bytes"
 
   astatement
 	args long,long,long

@@ -420,6 +420,38 @@ MD_SetColor
 	move.w D1,VDP_DATA
 	RTS
 
+;D0 = Data
+;D1 = Destination
+MD_CopyTo_VDP_W
+	Move.w #$8F02,VDP_CONTROL ;Set to word length
+	Move.l D1,D2
+	And.w #$3fff,D1
+	SWAP D1
+	
+	ROL.w #2,D2
+	And.w #3,D2
+	Or.w D2,D1
+	Or.l #$40000000,D1
+    move.l D1,VDP_CONTROL
+	Move.w D0,VDP_DATA
+	RTS
+
+;D0 = Data
+;D1 = Destination
+MD_CopyTo_VDP_L
+	Move.w #$8F02,VDP_CONTROL ;Set to word length
+	Move.l D1,D2
+	And.w #$3fff,D1
+	SWAP D1
+	
+	ROL.w #2,D2
+	And.w #3,D2
+	Or.w D2,D1
+	Or.l #$40000000,D1
+    move.l D1,VDP_CONTROL
+	Move.l D0,VDP_DATA
+	RTS
+
 ;D0 = Source address
 ;D1 = length
 ;D2 = Dest Address
@@ -474,13 +506,8 @@ VDP_Copy_L
 
 VDP_Copy_W
 	BTST #1,D3 ;Do we need to copy a word
-	BEQ VDP_COPY_B
-	Move.w (A0)+,VDP_DATA
-
-VDP_COPY_B
-	BTST #0,D3 ;Do we need to copy a byte
 	BEQ VDP_COPY_DONE
-	Move.b (A0)+,VDP_DATA
+	Move.w (A0)+,VDP_DATA
 
 VDP_COPY_DONE
 	RTS
@@ -798,7 +825,70 @@ MD_MDSDRV_Update:
 	JSR MDSDRV+4
     movem.l (SP)+,a0-a6		
 	RTS
+
+;Clamps D7 to range where 127 is minimum, 0 is maximum. Trashes D6-D7. D6 is in, D7 is out
+ClampSound
+
+	;The new volume level goes into D2
+	;Clamp to 255
+	CMP.w #255,D6
+	BLT NoClamp
+	Move.w #255,D6
+NoClamp
+	LSR.w #1,D6 ;Divide by 2. 255 -> 127
+	MoveQ #127,D7
+	Sub.w D6,D7 ;Reverse the volume level	
+	RTS
+
+
+;D0 = Volume
+;D1 = Priority level
+;D2 = Work area of at least 1062 bytes
+MD_MDSDRV_Volume:
+    
+	movem.l a0-a6,-(SP)	
+	Move.l D2,A0
+
+	Exg D0,D6
+	JSR ClampSound
+	Exg D7,D2
+
+	MoveQ #$D,D0
+
+	JSR MDSDRV+12
+
+    movem.l (SP)+,a0-a6	
+	RTS
 	
+
+;D0 = Volume for Music
+;D1 = Volume for SFX
+;D2 = Work area of at least 1062 bytes
+MD_MDSDRV_GVolume:
+    
+	movem.l a0-a6,-(SP)	
+	Move.l D2,A0
+
+	;Upper eight bits is music
+	Move.w D0,D6
+	JSR ClampSound
+	LSL.w #8,D7
+	Move.w D7,D0
+
+	;Lower eight bits is SFX
+	Move.w D1,D6
+	JSR ClampSound
+	Move.b D7,D0
+
+	Move.w D0,D1
+	MoveQ #$7,D0
+
+	JSR MDSDRV+12
+
+    movem.l (SP)+,a0-a6	
+	RTS
+
+
 ;D0 = Sound number
 ;D1 = Priority level
 ;D2 = Work area of at least 1062 bytes
