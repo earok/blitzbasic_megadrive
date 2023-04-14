@@ -44,10 +44,10 @@
   name "MD_ModeRegister2","EnableDisplay,Height (-1=240,0=224)"
 
   astatement
-    args word
+    args word,word
     libs
     subs MD_ModeRegister4,0,0	
-  name "MD_ModeRegister4","Width (-1=320,0=256)"
+  name "MD_ModeRegister4","Width (-1=320,0=256),Highlight/Shadow mode"
 	
   astatement
     args long,long,long

@@ -359,8 +359,12 @@ MD_ModeRegister2
 MD_ModeRegister4
 	;Width 320 wide??
 	and.w #%10000001,D0
+	;Highlight shadow mode
+	and.w #%00001000,D1
+	or.w D1,D0
 	or.w #$8C00,D0
 	move.w D0,VDP_CONTROL ;256 window
+
 	RTS
 	
 MD_SetPlaneSize
