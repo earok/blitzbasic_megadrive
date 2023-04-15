@@ -318,14 +318,14 @@ PalettteTransferFade:
 	;blue First
 	move.w D6,D4
 	And.w #$000F,D4 ;blue only
-	LSL.w #8,D4 ;Shift right by left by 8 so we can multiply
+	LSL.w #8,D4 ;Shift left by 8 so we can multiply
 	MULU D3,D4
 	SWAP D4
 	
 	;Green second
 	move.w D6,D5
 	And.w #$00F0,D5 ;green only
-	LSL.w #4,D5 ;Shift right by left by 4 so we can multiply
+	LSL.w #4,D5 ;Shift left by 4 so we can multiply
 	MULU D3,D5
 	SWAP D5
 	LSL.w #4,D5 ;Move back to the original position
