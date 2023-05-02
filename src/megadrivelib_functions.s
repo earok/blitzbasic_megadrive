@@ -812,7 +812,7 @@ MD_MDSDRV_WaitForZ80
 	beq.s	MD_MDSDRV_WaitForZ80	
 	
 	moveq	#$11,d0			; set_pcmmode
-	moveq	#$0,d1			; keep mixing mode
+	moveq	#$3,d1			; mixing = 3 channel
 	move.w	D3,D2			; DMA protection on
 
     movem.l a0-a6,-(SP) ;Store address registers
