@@ -193,14 +193,12 @@ Tiles: IncBin "tiles.megadrive"
 NameTable: IncBin "nametable.megadrive"
 
 MDSSeq: IncBin "mdsseq.bin"
-
-;NOTE - THIS SHOULD BE ALIGNED IN THE ROM AT A 32KB BOUNDARY. THIS ISN'T HANDLED BY THIS DEMO.
 MDSPCM: IncBin "mdspcm.bin"
 
 Macro Setup
 	MD_LoadPatterns ?Tiles,0,256
 	MD_SetPlaneSize 1,1 ;512 * 512
-	MD_ModeRegister4 -1 ;320 wide
+	MD_ModeRegister4 -1,0 ;320 wide, no highlight/shadow mode
 	MD_SetPlaneANameTable $C000
 	MD_SetPlaneBNameTable $C000
 	MD_CopyTo_VDP ?NameTable,$2000,$C000,2
@@ -231,11 +229,10 @@ NEWTYPE .MegaDriveSprite
 End NEWTYPE
 
 __main:
-	Dim WorkAreaArray.b(1062-1)
+	Dim WorkAreaArray.b(1024-1)
 	Dim MDSprites.MegaDriveSprite(1)
 
-	while MD_MDSDRV_Init(&WorkAreaArray(0),?MDSSeq,?MDSPCM)
-	wend
+	MD_MDSDRV_Init &WorkAreaArray(0),?MDSSeq,?MDSPCM,100
 	WorkArea.l = &WorkAreaArray(0)
 	MD_MDSDRV_Request 1,3,WorkArea	
 
