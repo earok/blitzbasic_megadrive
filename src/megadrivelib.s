@@ -62,7 +62,7 @@
   name "MD_LoadPatterns_DMA","Pattern address, first pattern index, num of patterns"
 
   astatement
-    args word,word,word,word
+    args long,word,word,word
     libs
     subs MD_SetColor,0,0	
   name "MD_SetColor","Index,Red,Green,Blue (in 1-255 range)"
@@ -103,11 +103,11 @@
     subs MD_Scroll,0,0
   name "MD_Scroll","FG X,FG Y,BG X,BG Y,HScroll Table Address"	
 
-  astatement
-    args word
+  afunction long
+    args word,word
     libs
     subs MD_SetHorizontalScrollTable,0,0
-  name "MD_SetHorizontalScrollTable","HScroll Table Address"	
+  name "MD_SetHorizontalScrollTable","HScroll Table Address, Scroll mode (0/2/3). Returns value to feed into scroll function"	
 
   astatement
     args word

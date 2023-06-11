@@ -34,6 +34,63 @@ MD_IsResetButtonPressed
 	BRA MD_False
 
 MD_ClearRAM
+	RTS
+
+	
+MD_Setup
+	move.b $00A10001,d0      ; Move Megadrive hardware version to d0
+	andi.b #$0F,d0           ; The version is stored in last four bits, so mask it with 0F
+	beq .Skip                  ; If version is equal to 0, skip TMSS signature
+	move.l #$53454741,$00A14000 ; Move the string "SEGA" to $A14000
+.Skip:
+
+
+	move.w #$0100,$00A11100    ; Request access to the Z80 bus, by writing $0100 into the BUSREQ port
+	move.w #$0100,$00A11200    ; Hold the Z80 in a reset state, by writing $0100 into the RESET port
+.WaitZ80:
+	btst #$0,$00A11100      ; Test bit 0 of A11100 to see if the 68k has access to the Z80 bus yet
+	bne .WaitZ80                  ; If we dont yet have control, branch back up to Wait
+
+	lea.l $00A00000,a1     ; Copy Z80 RAM address to a1
+	move.l #$1fff,d0
+	moveq #0,d1
+
+.ClearZ80:
+	move.b d1,(a1)+
+	dbra d0,.ClearZ80
+
+	lea.l ZEightyData,a0        ; Load address of data into a0
+	lea.l $00A00000,a1     ; Copy Z80 RAM address to a1
+	move.l ZEightyData_End-ZEightyData,d0           ; 42 bytes of init data
+.CopyZ80:
+	move.b (a0)+,(a1)+        ; Copy data, and increment the source/dest addresses
+	dbra d0,.CopyZ80
+
+	move.w #$0000,$00A11200    ; Release reset state
+	move.w #$0000,$00A11100    ; Release control of bus
+	move.w #$100,$00A11200	   ; Reset the Z80 again.
+
+	move.l #PSGData,a0        ; Load address of PSG data into a0
+	move.l #$03,d0           ; 4 bytes of data
+.CopyPSG:
+	move.b (a0)+,$00C00011   ; Copy data to PSG RAM
+	dbra d0,.CopyPSG
+	
+
+	move.l #VDPRegisters,a0   ; Load address of register table into a0
+	move.l #$18,d0           ; 24 registers to write
+	move.l #$00008000,d1     ; 'Set register 0' command (and clear the rest of d1 ready)
+
+.CopyVDP:
+	move.b (a0)+,d1           ; Move register value to lower byte of d1
+	move.w d1,VDP_CONTROL      ; Write command and value to VDP control port
+	add.w #$0100,d1          ; Increment register #
+	dbra d0,.CopyVDP
+
+	move.b #$00,$000A10009  ; Controller port 1 CTRL
+	move.b #$00,$000A1000B  ; Controller port 2 CTRL
+	move.b #$00,$000A1000D  ; EXP port CTRL
+	
 	move.l (A7),D2
 	move.l #$00000000,d0     ; Place a 0 into d0, ready to copy to each longword of RAM
 	move.l #$00000000,a0     ; Starting from address $0, clearing backwards
@@ -42,6 +99,11 @@ Clear:
 	move.l d0,-(a0)           ; Decrement the address by 1 longword, before moving the zero from d0 to it
 	dbra d1,Clear            ; Decrement d0, repeat until depleted
 	move.l d2,(A7)
+
+	;Wipe out everything except A7
+	move.l #$00FF0000,a0     ; Move address of first byte of ram (contains zero, RAM has been cleared) to a0
+	movem.l (a0),d0-d7/a1-a6  ; Multiple move zero to all registers
+	move.l #$00000000,a0     ; Clear a0
 
 ;https://plutiedev.com/vdp-setup wiping out ALL VDP
     move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 4 bytes
@@ -75,61 +137,7 @@ Clear:
 	Move.l #$DFF8,$00FF100C	
 
 
-	RTS
 
-	
-MD_Setup
-	move.b $00A10001,d0      ; Move Megadrive hardware version to d0
-	andi.b #$0F,d0           ; The version is stored in last four bits, so mask it with 0F
-	beq .Skip                  ; If version is equal to 0, skip TMSS signature
-	move.l #$53454741,$00A14000 ; Move the string "SEGA" to $A14000
-.Skip:
-
-
-	move.w #$0100,$00A11100    ; Request access to the Z80 bus, by writing $0100 into the BUSREQ port
-	move.w #$0100,$00A11200    ; Hold the Z80 in a reset state, by writing $0100 into the RESET port
-.WaitZ80:
-	btst #$0,$00A11100      ; Test bit 0 of A11100 to see if the 68k has access to the Z80 bus yet
-	bne .WaitZ80                  ; If we dont yet have control, branch back up to Wait
-	move.l #ZEightyData,a0        ; Load address of data into a0
-	move.l #$00A00000,a1     ; Copy Z80 RAM address to a1
-	move.l #$29,d0           ; 42 bytes of init data
-.CopyZ80:
-	move.b (a0)+,(a1)+        ; Copy data, and increment the source/dest addresses
-	dbra d0,.CopyZ80
-
-	move.w #$0000,$00A11200    ; Release reset state
-	move.w #$0000,$00A11100    ; Release control of bus
-
-
-	move.l #PSGData,a0        ; Load address of PSG data into a0
-	move.l #$03,d0           ; 4 bytes of data
-.CopyPSG:
-	move.b (a0)+,$00C00011   ; Copy data to PSG RAM
-	dbra d0,.CopyPSG
-	
-
-	move.l #VDPRegisters,a0   ; Load address of register table into a0
-	move.l #$18,d0           ; 24 registers to write
-	move.l #$00008000,d1     ; 'Set register 0' command (and clear the rest of d1 ready)
-
-.CopyVDP:
-	move.b (a0)+,d1           ; Move register value to lower byte of d1
-	move.w d1,VDP_CONTROL      ; Write command and value to VDP control port
-	add.w #$0100,d1          ; Increment register #
-	dbra d0,.CopyVDP
-
-	move.b #$00,$000A10009  ; Controller port 1 CTRL
-	move.b #$00,$000A1000B  ; Controller port 2 CTRL
-	move.b #$00,$000A1000D  ; EXP port CTRL
-	
-	;Wipe out everything except A7
-	move.l #$00FF0000,a0     ; Move address of first byte of ram (contains zero, RAM has been cleared) to a0
-	movem.l (a0),d0-d7/a1-a6  ; Multiple move zero to all registers
-	move.l #$00000000,a0     ; Clear a0
-
-	; Init status register (no trace, A7 is Interrupt Stack Pointer, no interrupts, clear condition code bits)
-	move #$2700,sr
 	RTS
 	
 ZEightyData:
@@ -144,6 +152,7 @@ ZEightyData:
    dc.w $f3ed,$5636
    dc.w $e9e9,$8104
    dc.w $8f01
+ZEightyData_End:
 
 PSGData:
    dc.w $9fbf,$dfff
@@ -373,12 +382,29 @@ MD_SetPlaneSize
 	or.w #$9000,D0
 	move.w D0,VDP_CONTROL
 	RTS
-	
+
+;Returns the value to feed into the VDP for future writing operations
 MD_SetHorizontalScrollTable
-	moveq #10,D1
-	lsr.w D1,D0
+
+	;Set the type of scrolling ;MAKE THIS MODE REGISTER 3 CONTROL
+	or.w #$8B00,D1
+	move.w D1,VDP_CONTROL
+
+	;Set the address in memory
+	Move.l D0,D4
+	moveq #10,d2
+	lsr.w d2,D0
 	or.w #$8D00,D0
 	move.w D0,VDP_CONTROL
+
+	Move.l D4,D5
+	And.w #$3fff,D4
+	SWAP D4	
+	ROL.w #2,D5
+	And.w #$3,D5
+	Or.w D5,D4
+	Or.l #$40000000,D4
+	Move.l D4,D0
 	RTS	
 
 ;move.w #$8500+($xxxx>>9),($c00004).l
@@ -417,7 +443,7 @@ MD_SetColor
 	Or.w D2,D1
 
 	;Now that the color is set..
-	LSL #1,D0 ;Convert to word length
+	LSL.l #1,D0 ;Convert to word length
 	Swap D0
 	Or.l #CRAM_ADDR_CMD,D0
 	move.l D0,VDP_CONTROL ;#$C0000000+($xx<<16)
@@ -568,7 +594,7 @@ MD_CopyTo_NameTable_LoopX ;Todo - unroll for performance reasons? Also offer a l
 ;D1 = Foreground scroll y
 ;D2 = Background scroll x
 ;D3 = Background scroll y
-;D4 = HScroll Write
+;D4 = HScroll (value to feed to VDP_Control)
 MD_Scroll:
 
 	;X Scroll is negative
@@ -581,22 +607,13 @@ MD_Scroll:
 	SWAP D1
 	Move.w D3,D1
 
-	;Todo - make this part a macro?
-	Move.l D4,D5
-	And.w #$3fff,D4
-	SWAP D4	
-	ROL.w #2,D5
-	And.w #$3,D5
-	Or.w D5,D4
-	Or.l #$40000000,D4
-    move.l D4,VDP_CONTROL
+    move.l D4,VDP_CONTROL ;Set the address of the H Scroll memory
 	move.l D0,VDP_DATA ;Load the X position
 
 	;Write to the first two words of VSRAM
 	move.l #$40000010,VDP_CONTROL
 	move.l D1,VDP_DATA ;Load the Y position
 	RTS
-
 
 MD_GamePad1_3Button
 	moveq	#$40,d0
