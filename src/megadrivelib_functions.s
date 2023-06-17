@@ -284,19 +284,20 @@ LAB_0004:
 	RTS				;7e: 4e75
 	
 MD_LoadPalette:
-    move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 2 bytes
+	Lea VDP_DATA,a1
+    move.w #$8F02,4(a1)      ; Set autoincrement to 2 bytes
 	
 	;Set up target address
 	Swap.w D1
 	And.l #$00FF0000,D1
 	Or.l #$C0000000,D1	
-    move.l D1,VDP_CONTROL
+    move.l D1,4(a1)
 	
 	move.l d0,a0                 ; Load palette address into a0	
     subq #$01,d2                ; Subtract 1 from the number of colors to transfer
 
 PalettteTransfer:
-    move.w (a0)+,VDP_DATA    ; Move data to VDP port and increment source address
+    move.w (a0)+,(a1)    ; Move data to VDP port and increment source address
     dbra d2,PalettteTransfer      ; stop iterating if all of palette has been sent
 	RTS
 
@@ -305,7 +306,8 @@ PalettteTransfer:
 ;D2 = Num Of Colors
 ;D3 = FadeAmount ;As quick, eg the top word is the whole number and the bottom word is the fraction
 MD_FadePalette:
-    move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 2 bytes
+	lea VDP_DATA,A1
+    move.w #$8F02,4(A1)      ; Set autoincrement to 2 bytes
 	
 	LSR.l #8,D3
 	
@@ -313,7 +315,7 @@ MD_FadePalette:
 	Swap.w D1
 	And.l #$00FF0000,D1
 	Or.l #$C0000000,D1	
-    move.l D1,VDP_CONTROL
+    move.l D1,4(A1)
 	
 	move.l d0,a0                 ; Load palette address into a0	
     subq #$01,d2                ; Subtract 1 from the number of colors to transfer
@@ -348,7 +350,7 @@ PalettteTransferFade:
 	;Combine RED, GREEN AND BLUE
 	or.w D4,D6
 	or.w D5,D6
-	move.w D6,VDP_DATA				  ; Load the palette into the VDP
+	move.w D6,(a1)				  ; Load the palette into the VDP
     dbra d2,PalettteTransferFade      ; stop iterating if all of palette has been sent
 	RTS
 	
@@ -426,6 +428,7 @@ MD_SetBackgroundColor
 ;D2 = green
 ;D3 = blue
 MD_SetColor
+	Lea VDP_DATA,A1
 
 	;Blue
 	LSL.w #4,D3
@@ -446,14 +449,16 @@ MD_SetColor
 	LSL.l #1,D0 ;Convert to word length
 	Swap D0
 	Or.l #CRAM_ADDR_CMD,D0
-	move.l D0,VDP_CONTROL ;#$C0000000+($xx<<16)
-	move.w D1,VDP_DATA
+	move.l D0,4(A1) ;#$C0000000+($xx<<16)
+	move.w D1,(A1)
 	RTS
 
 ;D0 = Data
 ;D1 = Destination
+;126 -> 122
 MD_CopyTo_VDP_W
-	Move.w #$8F02,VDP_CONTROL ;Set to word length
+	Lea VDP_DATA,A1
+	Move.w #$8F02,4(A1) ;Set to word length
 	Move.l D1,D2
 	And.w #$3fff,D1
 	SWAP D1
@@ -462,14 +467,15 @@ MD_CopyTo_VDP_W
 	And.w #3,D2
 	Or.w D2,D1
 	Or.l #$40000000,D1
-    move.l D1,VDP_CONTROL
-	Move.w D0,VDP_DATA
+    move.l D1,4(A1)
+	Move.w D0,(A1)
 	RTS
 
 ;D0 = Data
 ;D1 = Destination
 MD_CopyTo_VDP_L
-	Move.w #$8F02,VDP_CONTROL ;Set to word length
+	Lea VDP_DATA,A1
+	Move.w #$8F02,4(A1) ;Set to word length
 	Move.l D1,D2
 	And.w #$3fff,D1
 	SWAP D1
@@ -478,15 +484,16 @@ MD_CopyTo_VDP_L
 	And.w #3,D2
 	Or.w D2,D1
 	Or.l #$40000000,D1
-    move.l D1,VDP_CONTROL
-	Move.l D0,VDP_DATA
+    move.l D1,4(A1)
+	Move.l D0,(A1)
 	RTS
 
 ;D0 = Source address
 ;D1 = length
 ;D2 = Dest Address
 MD_CopyTo_VDP
-	Move.w #$8F02,VDP_CONTROL ;Set to word length
+	Lea VDP_DATA,A1
+	Move.w #$8F02,4(A1) ;Set to word length
 	Move.l D2,D3
 	And.w #$3fff,D2
 	SWAP D2
@@ -495,7 +502,7 @@ MD_CopyTo_VDP
 	And.w #$3,D3
 	Or.w D3,D2
 	Or.l #$40000000,D2
-    move.l D2,VDP_CONTROL
+    move.l D2,4(A1)
 
 VDP_COPY_L_START
 	Move.l D1,D3
@@ -505,39 +512,39 @@ VDP_COPY_L_START
 	BLT VDP_Copy_L4
 
 VDP_COPY_L8
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA	
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)	
 	DBra D1,VDP_COPY_L8
 
 VDP_Copy_L4
 	BTST #4,D3 ;Do we need to copy four long words
 	BEQ VDP_Copy_L2
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA	
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)	
 
 VDP_Copy_L2
 	BTST #3,D3 ;Do we need to copy two long words
 	BEQ VDP_Copy_L
-	Move.l (A0)+,VDP_DATA
-	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,(A1)
+	Move.l (A0)+,(A1)
 
 VDP_Copy_L 
 	BTST #2,D3 ;Do we need to copy a single long word
 	BEQ VDP_Copy_W
-	Move.l (A0)+,VDP_DATA
+	Move.l (A0)+,(A1)
 
 VDP_Copy_W
 	BTST #1,D3 ;Do we need to copy a word
 	BEQ VDP_COPY_DONE
-	Move.w (A0)+,VDP_DATA
+	Move.w (A0)+,(A1)
 
 VDP_COPY_DONE
 	RTS
@@ -549,9 +556,10 @@ VDP_COPY_DONE
 ;D4 = Source modulo
 ;D5 = Destination modulo
 MD_CopyTo_NameTable
+	Lea VDP_DATA,A1
 
 	;Set the auto increment to 2
-	Move.w #$8F02,VDP_CONTROL
+	Move.w #$8F02,4(A1)
 	
 	;Convert the modulos to word length
 	Add.w D4,D4
@@ -575,13 +583,13 @@ MD_CopyTo_NameTable_LoopY
 	And.w #$3,D6
 	Or.w D6,D1
 	Or.l #$40000000,D1
-    move.l D1,VDP_CONTROL
+    move.l D1,4(A1)
 	
 	;The actual copy
 	Move.l D0,A0
 	Move.w D2,D7
 MD_CopyTo_NameTable_LoopX ;Todo - unroll for performance reasons? Also offer a long-length solution?
-	Move.w (A0)+,VDP_DATA
+	Move.w (A0)+,(A1)
 	dbra D7,MD_CopyTo_NameTable_LoopX
 
 	Add.l D4,D0 ;Update the source address
@@ -596,6 +604,7 @@ MD_CopyTo_NameTable_LoopX ;Todo - unroll for performance reasons? Also offer a l
 ;D3 = Background scroll y
 ;D4 = HScroll (value to feed to VDP_Control)
 MD_Scroll:
+	Lea VDP_DATA,A1
 
 	;X Scroll is negative
 	NEG.w D0
@@ -607,12 +616,12 @@ MD_Scroll:
 	SWAP D1
 	Move.w D3,D1
 
-    move.l D4,VDP_CONTROL ;Set the address of the H Scroll memory
-	move.l D0,VDP_DATA ;Load the X position
+    move.l D4,4(A1) ;Set the address of the H Scroll memory
+	move.l D0,(A1) ;Load the X position
 
 	;Write to the first two words of VSRAM
-	move.l #$40000010,VDP_CONTROL
-	move.l D1,VDP_DATA ;Load the Y position
+	move.l #$40000010,4(A1)
+	move.l D1,(A1) ;Load the Y position
 	RTS
 
 MD_GamePad1_3Button
@@ -678,7 +687,8 @@ MD_LoadPatterns_DMA:
 ;D2 - Destination address in VDP memory
 MD_DMA_Transfer
 
-	move.w #$8F02,VDP_CONTROL ;Set to 2 byte transfer
+	Lea VDP_CONTROL,A3
+	move.w #$8F02,(A3) ;Set to 2 byte transfer
 
 	;Divide the source by half
 	lsr.l #1,D0	
@@ -710,30 +720,30 @@ MD_DMA_Transfer_Ready
 	;DMA Length lower byte
 	move.w #$9300,D3
 	move.b D1,D3
-	move.w D3,VDP_CONTROL
+	move.w D3,(A3)
 
 	;DMA length upper byte
 	move.w #$9400,D3
 	lsr.w #8,D1
 	move.b D1,D3
-	move.w D3,VDP_CONTROL
+	move.w D3,(A3)
 
 	;DMA source low byte
 	move.w #$9500,D3
 	move.b D0,D3
-	move.w D3,VDP_CONTROL
+	move.w D3,(A3)
 
 	;DMA source middle byte
 	move.w #$9600,D3
 	lsr.l #8,D0
 	move.b D0,D3
-	move.w D3,VDP_CONTROL
+	move.w D3,(A3)
 
 	;DMA source top byte
 	move.w #$9700,D3
 	lsr.l #8,D0
 	move.b D0,D3
-	move.w D3,VDP_CONTROL
+	move.w D3,(A3)
 
 	;Finally, copy to destination
 	move.l #$40000080,D3
@@ -749,7 +759,7 @@ MD_DMA_Transfer_Ready
 	rol.w #2,D4
 	or.w D4,D3
 
-	move.l D3,VDP_CONTROL
+	move.l D3,(A3)
 	RTS
 
 ;D0 = The name table address	
