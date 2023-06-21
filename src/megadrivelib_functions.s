@@ -33,7 +33,31 @@ MD_IsResetButtonPressed
 	BNE MD_True	
 	BRA MD_False
 
-MD_ClearRAM
+MD_ClearVDP
+;https://plutiedev.com/vdp-setup wiping out ALL VDP
+    move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 4 bytes
+    moveq   #0,d0          
+    
+    ; Clear CRAM
+    move.l  #CRAM_ADDR_CMD,VDP_CONTROL
+    move.w  #(CRAM_SIZE/4)-1,d1
+@ClearCram:
+    move.l  d0,VDP_DATA
+    dbf     d1,@ClearCram    
+
+    ; Clear VRAM
+    move.l  #VRAM_ADDR_CMD,VDP_CONTROL
+    move.w  #(VRAM_SIZE/4)-1,d1
+@ClearVram:
+    move.l  d0,VDP_DATA
+    dbf     d1,@ClearVram
+    
+    ; Clear VSRAM
+    move.l  #VSRAM_ADDR_CMD,VDP_CONTROL
+    move.w  #(VSRAM_SIZE/4)-1,d1
+@ClearVsram:
+    move.l  d0,VDP_DATA
+    dbf     d1,@ClearVsram
 	RTS
 
 	
@@ -105,30 +129,7 @@ Clear:
 	movem.l (a0),d0-d7/a1-a6  ; Multiple move zero to all registers
 	move.l #$00000000,a0     ; Clear a0
 
-;https://plutiedev.com/vdp-setup wiping out ALL VDP
-    move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 4 bytes
-    moveq   #0,d0          
-    
-    ; Clear VRAM
-    move.l  #VRAM_ADDR_CMD,VDP_CONTROL
-    move.w  #(VRAM_SIZE/4)-1,d1
-@ClearVram:
-    move.l  d0,VDP_DATA
-    dbf     d1,@ClearVram
-    
-    ; Clear CRAM
-    move.l  #CRAM_ADDR_CMD,VDP_CONTROL
-    move.w  #(CRAM_SIZE/4)-1,d1
-@ClearCram:
-    move.l  d0,VDP_DATA
-    dbf     d1,@ClearCram
-    
-    ; Clear VSRAM
-    move.l  #VSRAM_ADDR_CMD,VDP_CONTROL
-    move.w  #(VSRAM_SIZE/4)-1,d1
-@ClearVsram:
-    move.l  d0,VDP_DATA
-    dbf     d1,@ClearVsram
+	JSR MD_ClearVDP
 
 	;Reset the Blitz Basic stack???
 	Move.l #$FF1008,$00FF1000

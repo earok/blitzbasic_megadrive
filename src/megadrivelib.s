@@ -130,14 +130,14 @@
   astatement
     args
     libs
-    subs MD_Stop,0,0	
-  name "MD_Stop","Stop the MegaDrive CPU"
+    subs MD_ClearVDP,0,0	
+  name "MD_ClearVDP","Clears the VDP (tiles,map,palette etc)"
 
   astatement
     args
     libs
-    subs MD_ClearRAM,0,0	
-  name "MD_ClearRAM","Clear all RAM (except the current stack pointer)"
+    subs MD_Stop,0,0	
+  name "MD_Stop","Stop the MegaDrive CPU"
 
   astatement
     args
