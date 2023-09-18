@@ -1,7 +1,7 @@
 DEFTYPE .l
 
 if NumPars < 2
-	NPrint "Usage: Blitz2Sega [input] [output]"
+	NPrint "Usage: Blitz2Sega [input] [output] (32x)"
 	End
 endif
 
@@ -22,10 +22,15 @@ CodeLength = Peek.l(CodeStart - 4) * 4
 Relocates = Peek.l(CodeStart + CodeLength + 4)
 RelocateStart = CodeStart + CodeLength + 12
 
+CodeOffset.l = -8
+if NumPars > 2
+	CodeOffset + $880000
+endif
+
 ;Fix the address offsets
 for i = 0 to Relocates - 1
 	Address = Peek.l(RelocateStart)
-	NewValue = Peek.l(CodeStart + Address) - 8
+	NewValue = Peek.l(CodeStart + Address) + CodeOffset
 	Poke.l CodeStart+Address, NewValue
 	RelocateStart + 4
 next
@@ -54,11 +59,11 @@ CodeLength-8
 ;Set the ROM Size
 Poke.l CodeStart + $1A4,CodeLength-1
 
-;Set the Checksum
-Checksum = 0
+;Set the MDChecksum
+MDChecksum = 0
 Address = CodeStart + $200
 While Address < CodeStart + CodeLength
-	Checksum + Peek.w(Address)
+	MDChecksum + Peek.w(Address)
 	Address + 2	
 Wend
 
@@ -72,7 +77,7 @@ While Address < CodeStart + CodeLength
 	Address + 1
 Wend
 
-Poke.w CodeStart + $18E,Checksum
+Poke.w CodeStart + $18E,MDChecksum
 
 if WriteFile(0,Par$(2))
 	WriteMem 0,CodeStart,CodeLength

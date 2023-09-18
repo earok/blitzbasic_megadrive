@@ -44,6 +44,12 @@
   name "MD_ModeRegister2","EnableDisplay,Height (-1=240,0=224)"
 
   astatement
+    args word, word
+    libs
+    subs MD_ModeRegister3,0,0	
+  name "MD_ModeRegister3","Horizontal Scroll Mode, Vertical Scroll Mode"
+
+  astatement
     args word,word
     libs
     subs MD_ModeRegister4,0,0	
@@ -89,7 +95,7 @@
     args long,long,long
     libs
     subs MD_DMA_Transfer,0,0
-  name "MD_DMA_Transfer","Source Address,Length,Dest Address"	
+  name "MD_DMA_Transfer","Source Address,Dest Address,Length"	
 
   astatement
     args long,long,long,long,long,long
@@ -104,10 +110,22 @@
   name "MD_Scroll","FG X,FG Y,BG X,BG Y,HScroll Table Address"	
 
   afunction long
-    args word,word
+    args word
     libs
     subs MD_SetHorizontalScrollTable,0,0
-  name "MD_SetHorizontalScrollTable","HScroll Table Address, Scroll mode (0/2/3). Returns value to feed into scroll function"	
+  name "MD_SetHorizontalScrollTable","HScroll Table Address. Returns value to feed into scroll function"	
+
+  astatement
+    args long
+    libs
+    subs MD_DMA_VSRAM,0,0
+  name "MD_DMA_VSRAM","VS Ram Source"	
+
+  astatement
+    args long
+    libs
+    subs MD_DMA_CRAM,0,0
+  name "MD_DMA_CRAM","CRam Source"	
 
   astatement
     args word
@@ -182,34 +200,64 @@
   name "MD_SetWindowPosition","X Offset,Y Offset,From Right,From Bottom"
 
   astatement
-	args long,long,long,word
+  args long,long,long
+  libs
+  subs MD_XGM_Init,0,0
+  name "MD_XGM_Init","Z80 XGM Driver Size, Z80 XGM Driver, Null Pointer (256 byte aligned)"
+
+  astatement
+  args long, long
+  libs
+  subs MD_XGM_PlayMusic,0,0
+  name "MD_XGM_PlayMusic","XGM Track, Null Pointer (256 byte aligned)"
+
+  astatement
+  args
+  libs
+  subs MD_XGM_StopMusic,0,0
+  name "MD_XGM_StopMusic","Stop music"
+
+  astatement
+  args
+  libs
+  subs MD_XGM_ResumeMusic,0,0
+  name "MD_XGM_ResumeMusic","Resume music"
+
+  astatement
+  args long, long, long, long
+  libs
+  subs MD_XGM_PCM,0,0
+  name "MD_XGM_PCM","PCM address, PCM length, PCM channel, PCM ID Pointer (long)"
+
+  astatement
+	args long,long,long,long,long
 	libs
 	subs MD_MDSDRV_Init,0,0
-  name "MD_MDSDRV_Init","Work area of >= 1024 bytes,Sequence pointer,PCM data pointer,DMA protection bytes"
+  name "MD_MDSDRV_Init","Work area of >= 1024 bytes,Sequence pointer,PCM data pointer,DMA protection bytes,MDSDRV blob"
 
   astatement
-	args long
+	args long, long
 	libs
 	subs MD_MDSDRV_Update,0,0
-  name "MD_MDSDRV_Update","Work area of >= 1024 bytes"
+  name "MD_MDSDRV_Update","Work area of >= 1024 bytes,MDSDRV blob"
 
   astatement
-	args long,long,long
+	args long,long,long,long
 	libs
 	subs MD_MDSDRV_Volume,0,0
-  name "MD_MDSDRV_Volume","Volume (0-256), Priority, Work area of >= 1024 bytes"
+  name "MD_MDSDRV_Volume","Volume (0-256), Priority, Work area of >= 1024 bytes,MDSDRV blob"
 
   astatement
-	args long,long,long
+	args long,long,long,long
 	libs
 	subs MD_MDSDRV_GVolume,0,0
-  name "MD_MDSDRV_GVolume","Music Volume (0-256), Sound Volume (0-256), Work area of >= 1024 bytes"
+  name "MD_MDSDRV_GVolume","Music Volume (0-256), Sound Volume (0-256), Work area of >= 1024 bytes,MDSDRV blob"
 
   astatement
-	args long,long,long
+	args long,long,long,long
 	libs
 	subs MD_MDSDRV_Request,0,0
-  name "MD_MDSDRV_Request","Sound number,priority level,Work area of >= 1024 bytes"
+  name "MD_MDSDRV_Request","Sound number,priority level,Work area of >= 1024 bytes,MDSDRV blob"
 
 blitz_finit:
 	nullsub _blitz_ahx_lib_finit,0,0

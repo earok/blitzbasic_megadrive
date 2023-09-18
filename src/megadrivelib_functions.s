@@ -7,6 +7,9 @@ VRAM_SIZE:    equ 65536
 CRAM_SIZE:    equ 128
 VSRAM_SIZE:   equ 80
 
+;Put sample table at top of RAM for now ???
+_global_xgmsample_ID_table: equ $FF0000
+
 MD_VWait
    MoveQ #1,D0
    
@@ -35,7 +38,7 @@ MD_IsResetButtonPressed
 
 MD_ClearVDP
 ;https://plutiedev.com/vdp-setup wiping out ALL VDP
-    move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 4 bytes
+    move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 2 bytes
     moveq   #0,d0          
     
     ; Clear CRAM
@@ -62,6 +65,7 @@ MD_ClearVDP
 
 	
 MD_Setup
+	Move #$2700,SR 	;Final setup steps ;DISABLE ALL INTERRUPTS
 	move.b $00A10001,d0      ; Move Megadrive hardware version to d0
 	andi.b #$0F,d0           ; The version is stored in last four bits, so mask it with 0F
 	beq .Skip                  ; If version is equal to 0, skip TMSS signature
@@ -129,16 +133,11 @@ Clear:
 	movem.l (a0),d0-d7/a1-a6  ; Multiple move zero to all registers
 	move.l #$00000000,a0     ; Clear a0
 
-	JSR MD_ClearVDP
-
 	;Reset the Blitz Basic stack???
 	Move.l #$FF1008,$00FF1000
 	Clr.l $00FF1004
 	Clr.l $00FF1008	
 	Move.l #$DFF8,$00FF100C	
-
-
-
 	RTS
 	
 ZEightyData:
@@ -368,6 +367,14 @@ MD_ModeRegister2
 	move.w D0,VDP_CONTROL 
 	RTS
 
+MD_ModeRegister3
+	and.w #%011,D0 ;Only the first two bits are used for the horizontal register
+	and.w #%100,D1 ;Only one bit used for the vertical register
+	or.w D1,D0
+	or.w #$8B00,D0
+	move.w D0,VDP_CONTROL 
+	RTS
+
 MD_ModeRegister4
 	;Width 320 wide??
 	and.w #%10000001,D0
@@ -388,10 +395,6 @@ MD_SetPlaneSize
 
 ;Returns the value to feed into the VDP for future writing operations
 MD_SetHorizontalScrollTable
-
-	;Set the type of scrolling ;MAKE THIS MODE REGISTER 3 CONTROL
-	or.w #$8B00,D1
-	move.w D1,VDP_CONTROL
 
 	;Set the address in memory
 	Move.l D0,D4
@@ -679,23 +682,23 @@ MD_LoadPatterns:
 MD_LoadPatterns_DMA:
 	;Leave source address as D0
 	LSL.l #5,D1 ;Pattern index needs to be multiplied by 32
-	LSL.l #5,D2 ;Number of patterns needs to be multiplied by 32
+	LSL.l #4,D2 ;Number of patterns needs to be multiplied by 16
 	EXG D2,D1
-	BRA MD_DMA_Transfer	
+	Bra MD_DMA_Transfer_SkipSize
 
 ;D0 - Source address in 68K memory
 ;D1 - Length
 ;D2 - Destination address in VDP memory
 MD_DMA_Transfer
 
+	;Divide the size by half
+	lsr.l #1,D1
+
+MD_DMA_Transfer_SkipSize	
 	Lea VDP_CONTROL,A3
-	move.w #$8F02,(A3) ;Set to 2 byte transfer
 
 	;Divide the source by half
 	lsr.l #1,D0	
-
-	;Divide the size by half
-	lsr.l #1,D1
 
 	;Check if crosses 128 boundary
 	Move.w D0,D7
@@ -712,6 +715,8 @@ MD_DMA_Transfer
 	JSR MD_DMA_Transfer_Ready	
 	MoveM.l (sp)+,D0-D3 ;Restore our original variables
 	Sub.l D6,D1 ;Subtract the length of words we've already copied from our length
+	BEQ MD_DMA_Transfer_Done ;=== FIX FOR BUG ===
+
 	Add.l D6,D0 ;Add the length of words we've already copied to our source
 
 	Add.l D6,D2 ;Add to our destination address twice
@@ -761,6 +766,90 @@ MD_DMA_Transfer_Ready
 	or.w D4,D3
 
 	move.l D3,(A3)
+
+MD_DMA_Transfer_Done
+	RTS
+
+;D0 = source
+MD_DMA_CRAM
+	Lea VDP_CONTROL,A3
+
+	;Divide the source by half
+	lsr.l #1,D0	
+
+	MoveQ #64,D1 ;Always 128 bytes / 64 words of CRAM
+
+	;DMA Length lower byte
+	move.w #$9300,D3
+	move.b D1,D3
+	move.w D3,(A3)
+
+	;DMA length upper byte
+	move.w #$9400,D3
+	lsr.w #8,D1
+	move.b D1,D3
+	move.w D3,(A3)
+
+	;DMA source low byte
+	move.w #$9500,D3
+	move.b D0,D3
+	move.w D3,(A3)
+
+	;DMA source middle byte
+	move.w #$9600,D3
+	lsr.l #8,D0
+	move.b D0,D3
+	move.w D3,(A3)
+
+	;DMA source top byte
+	move.w #$9700,D3
+	lsr.l #8,D0
+	move.b D0,D3
+	move.w D3,(A3)
+
+	;Finally, copy to destination
+	move.l #$C0000080,(A3)
+	RTS
+
+;D0 = source
+MD_DMA_VSRAM
+	Lea VDP_CONTROL,A3
+
+	;Divide the source by half
+	lsr.l #1,D0	
+
+	MoveQ #40,D1 ;Always 80 bytes / 40 words of VSRAM
+
+	;DMA Length lower byte
+	move.w #$9300,D3
+	move.b D1,D3
+	move.w D3,(A3)
+
+	;DMA length upper byte
+	move.w #$9400,D3
+	lsr.w #8,D1
+	move.b D1,D3
+	move.w D3,(A3)
+
+	;DMA source low byte
+	move.w #$9500,D3
+	move.b D0,D3
+	move.w D3,(A3)
+
+	;DMA source middle byte
+	move.w #$9600,D3
+	lsr.l #8,D0
+	move.b D0,D3
+	move.w D3,(A3)
+
+	;DMA source top byte
+	move.w #$9700,D3
+	lsr.l #8,D0
+	move.b D0,D3
+	move.w D3,(A3)
+
+	;Finally, copy to destination
+	move.l #$40000090,(A3)
 	RTS
 
 ;D0 = The name table address	
@@ -816,15 +905,18 @@ MD_False:
 ;D1 = Sequence Data
 ;D2 = PCM data
 ;D3 = DMA protection size in bytes (0 if none, else 40-220 with 100 recommended)
+;D4 = MDSDRV blob
 MD_MDSDRV_Init:
 
 	Move.l D0,A0
 	Move.l D1,A1
 	Move.l D2,A2
 
+	Move.l D4,A3
+
 	Move.w D3,-(SP) ;Store DMA protection amount
     movem.l a0-a6,-(SP) ;Store address registers
-	JSR MDSDRV
+	JSR (A3) ;MDSDRV
     movem.l (SP)+,a0-a6	;Restore address registers
 	Move.w (SP)+,D3 ;Restore DMA protection amount
 
@@ -833,7 +925,7 @@ MD_MDSDRV_WaitForZ80
 	moveq	#$12,d0				; get Z80 pcm mode
 	Move.w D3,-(SP) ;Store DMA protection amount
     movem.l a0-a6,-(SP) ;Store address registers	
-	bsr.w	MDSDRV+$0c
+	jsr $0c(A3) ;bsr.w	MDSDRV+$0c
     movem.l (SP)+,a0-a6	;Restore address registers
 	Move.w (SP)+,D3 ;Restore DMA protection amount	
 	tst.b	d0
@@ -844,17 +936,21 @@ MD_MDSDRV_WaitForZ80
 	move.w	D3,D2			; DMA protection on
 
     movem.l a0-a6,-(SP) ;Store address registers
-	jsr		MDSDRV+$0c
+
+	jsr $0c(A3) ;bsr.w	MDSDRV+$0c
     movem.l (SP)+,a0-a6	;Restore address registers
 
 MD_MDSDRV_Init_Finished
 	RTS
 	
 ;D0 = Work area of at least 1062 bytes
+;D1 = MDSDRV blob
 MD_MDSDRV_Update:
+	Move.l D1,A3
+
     movem.l a0-a6,-(SP)	
 	Move.l D0,A0
-	JSR MDSDRV+4
+	JSR 4(A3) ;MDSDRV+4
     movem.l (SP)+,a0-a6		
 	RTS
 
@@ -876,8 +972,10 @@ NoClamp
 ;D0 = Volume
 ;D1 = Priority level
 ;D2 = Work area of at least 1062 bytes
+;D3 = MDSDRV mapper
 MD_MDSDRV_Volume:
-    
+   	Move.l D3,A3
+
 	movem.l a0-a6,-(SP)	
 	Move.l D2,A0
 
@@ -887,7 +985,7 @@ MD_MDSDRV_Volume:
 
 	MoveQ #$D,D0
 
-	JSR MDSDRV+12
+	JSR 12(A3) ;MDSDRV+12
 
     movem.l (SP)+,a0-a6	
 	RTS
@@ -896,8 +994,10 @@ MD_MDSDRV_Volume:
 ;D0 = Volume for Music
 ;D1 = Volume for SFX
 ;D2 = Work area of at least 1062 bytes
+;D3 = MDSDRV mapper
 MD_MDSDRV_GVolume:
-    
+    Move.l D3,A3
+
 	movem.l a0-a6,-(SP)	
 	Move.l D2,A0
 
@@ -915,7 +1015,7 @@ MD_MDSDRV_GVolume:
 	Move.w D0,D1
 	MoveQ #$7,D0
 
-	JSR MDSDRV+12
+	JSR 12(A3);MDSDRV+12
 
     movem.l (SP)+,a0-a6	
 	RTS
@@ -924,13 +1024,252 @@ MD_MDSDRV_GVolume:
 ;D0 = Sound number
 ;D1 = Priority level
 ;D2 = Work area of at least 1062 bytes
+;D3 = MDSDRV blob
 MD_MDSDRV_Request:
+    Move.l D3,A3
     movem.l a0-a6,-(SP)	
 	Move.l D2,A0
-	JSR MDSDRV+8
+	JSR 8(A3) ; MDSDRV+8
     movem.l (SP)+,a0-a6	
 	RTS
 	
-MDSDRV:
-	incbin "mdsdrv.bin"
-	
+;MDSDRV:
+;	incbin "mdsdrv.bin"
+MD_XGM_Init
+
+;https://github.com/AlcaTechStudio/Alcatech_NextBasicMC68000/blob/master/compiler/system/XGM_Driver.nbs
+    move.w  #$100,($A11100)         ; Send the Z80 a bus request.
+    move.w  #$100,($A11200)
+
+@z80_wait1:
+    move.w  ($A11100),D7            ; read Z80 halted state
+    btst    #8,D7                   ; Z80 halted ?
+    bne     @z80_wait1              ; not yet, wait..
+     
+;    MOVE.L  #(Z80drv_end-Z80drv),D0   (Length is already in D0)
+
+;    LEA     Z80drv,A0
+	Move.l D1,A0 ;Move the driver location into A0
+
+    MOVE.L  #$A00000,A1
+     
+@loop:
+    MOVE.b  (A0)+,(A1)+
+    DBRA    D0,@loop               ; load driver
+    
+    move.l  #$A01C00,a0             ; point to Z80 sample id table (first entry = silent sample)
+    ;move.l  #NULLpcm,d0             ; d0 = silent sample
+	move.l D2,D0 ;Null/silent sample is in D2
+
+    lsr.l   #8,d0
+    move.b  d0,(a0)+                ; sample address
+    lsr.l   #8,d0
+    move.b  d0,(a0)+
+    move.b  #$01,(a0)+              ; sample length
+    move.b  #$00,(a0) 
+     
+    move.w  #$000,($A11200)         ; Start Z80 Reset
+    move.w  #$000,($A11100)         ; release the Z80 bus
+
+    move.l  #$A00102,a0             ; point to status
+
+@test_ready:
+    move.w  #100,d0                 ; 
+
+@wait:
+    DBRA    D0,@wait               ; wait a bit
+    
+    move.w  #$100,($A11100)         ; Send the Z80 a bus request
+    move.w  #$100,($A11200)         ; End Z80 Reset
+
+@z80_wait2:
+    move.w  ($A11100),D0            ; read Z80 halted state
+    btst    #8,D0                   ; Z80 halted ?
+    bne     @z80_wait2              ; not yet, wait...
+
+
+    move.b (a0),d0
+    move.w  #$000,($A11100)         ; release the Z80 bus    
+    btst   #7,d0                    ; not yet ready
+
+	;Erik - this causes an infinite loop?
+    beq    @test_ready   
+	RTS
+
+
+
+
+
+
+
+
+MD_XGM_PlayMusic
+	move.l D0,A1 ;Put the track in A1
+	move.l D1,D7 ;Put the null sample in D7
+    move.w  #$100,($A11100)         ; Send the Z80 a bus request
+    move.w  #$100,($A11200)
+    
+@z80_wait1_MD_XGM_PlayMusic:
+    move.w  ($A11100),D0            ; read Z80 halted state
+    btst    #8,D0                   ; Z80 halted ?
+    bne     @z80_wait1_MD_XGM_PlayMusic              ; not yet, wait..
+
+    lea  _global_xgmsample_ID_table,a0                   ; a0 = reserved $FC array for sample id table
+    moveq   #0,d0
+     
+@loop_MD_XGM_PlayMusic:                              ; prepare sample id table
+    move.w  d0,d1
+    add.w   d1,d1   
+    add.w   d1,d1
+    moveq   #0,d2   
+    move.w  0(a1,d1.w),d2           ; get sample addr in song bank table
+    rol.w   #8,d2                   ; revert endianess
+
+    cmp.w   #$FFFF,d2               ; is null sample ?
+    bne     @not_null
+    
+    move.l  D7,d2 ;Move the null sample to d2
+    jmp     @addr_done
+    
+@not_null:
+    addq.w  #1,d2                   ; add offset
+    lsl.l   #8,d2                   ; pass to 24 bits
+    add.l   a1,d2                   ; transform to absolute address
+
+@addr_done
+    lsr.l   #8,d2                   ; get high byte
+    move.b  d2,0(a0,d1.w)
+    lsr.w   #8,d2                   ; get low byte
+    move.b  d2,1(a0,d1.w)
+    move.w  2(a1,d1.w),2(a0,d1.w)   ; copy sample length
+
+    addq.w  #1,d0
+    cmp.w   #$3F,d0
+    bne     @loop_MD_XGM_PlayMusic
+
+    move.l  #$A01C04,a2             ; destination of sample id table
+    lsl.w   #2,d0                   ; set size in bytes
+    subq.w  #1,d0
+     
+@sampleIdLoop:
+    move.b (a0)+,(a2)+
+    dbra   d0,@sampleIdLoop         ; load sample id table
+
+    move.l  a1,d0                   ; d0 = song address
+    add.l   #$100,d0                ; bypass sample id table
+
+    moveq   #0,d2
+    move.w  $FC(a1),d2              ; get sample data size
+    rol.w   #8,d2                   ; revert endianess
+    lsl.l   #8,d2                   ; pass to 24 bits
+
+    add.l   d2,d0                   ; bypass samples data
+    addq.l  #4,d0                   ; bypass music data size field
+    
+    move.l  #$A00104,a2             ; XGM base parameters address
+
+    move.b  d0,0(a2)                ; low byte
+    lsr.l   #8,d0
+    move.b  d0,1(a2)                ; med low byte
+    lsr.l   #8,d0
+    move.b  d0,2(a2)                ; med high byte
+    lsr.l   #8,d0
+    move.b  d0,3(a2)                ; high byte
+    
+    or.b    #$40,($A00100)          ; send play XGM command
+
+    move.w  #$000,($A11100)         ; release the Z80 bus    
+	RTS
+
+MD_XGM_StopMusic
+    move.w  #$100,($A11100)         ; Send the Z80 a bus request
+    move.w  #$100,($A11200)
+
+z80_wait1_MD_XGM_StopMusic
+    move.w  ($A11100),D0            ; read Z80 halted state
+    btst    #8,D0                   ; Z80 halted ?
+    bne     z80_wait1_MD_XGM_StopMusic ; not yet, wait..
+    
+    or.b    #$10,($A00100)          ; send stop play command
+
+    move.w  #$000,($A11100)         ; release the Z80 bus
+	RTS
+
+MD_XGM_ResumeMusic
+	move.w  #$100,($A11100)         ; Send the Z80 a bus request
+    move.w  #$100,($A11200)
+
+z80_wait1_MD_XGM_ResumeMusic
+    move.w  ($A11100),D0            ; read Z80 halted state
+    btst    #8,D0                   ; Z80 halted ?
+    bne     z80_wait1_MD_XGM_ResumeMusic              ; not yet, wait..
+    
+    or.b    #$20,($A00100)          ; send resume play command
+
+    move.w  #$000,($A11100)         ; release the Z80 bus
+	RTS
+
+
+
+;sub xgm_playPCM(byval sample as long,byval lenght as long, byval chn as integer)
+;push(sample as long, "A1")
+;push(lenght as long, "D1")
+;push(chn as long, "D2")
+MD_XGM_PCM
+	move.l D0,A1 ;load the sample address into A1	
+	move.l D3,A2 ;Pointer to the PCM ID
+
+    move.w  #$100,($A11100)         ; Send the Z80 a bus request
+    move.w  #$100,($A11200)
+    
+z80_wait1xgm_playPCM:
+    move.w  ($A11100),D0            ; read Z80 halted state
+    btst    #8,D0                   ; Z80 halted ?
+    bne     z80_wait1xgm_playPCM              ; not yet, wait..
+
+    move.l  (a2),d0
+    lsl.l   #2,d0
+    lea     $A01C00,a0
+    adda.l  d0,a0                   ; a0 point on id table entry
+    
+    move.l  a1,d0                   ; d0 = sample address
+    
+    lsr.l   #8,d0                   ; get sample address (high byte)
+    move.b  d0,(a0)+
+    lsr.w   #8,d0                   ; get sample address (low byte)
+    move.b  d0,(a0)+
+    lsr.l   #8,d1                   ; get sample length (high byte)
+    move.b  d1,(a0)+
+    lsr.w   #8,d1                   ; get sample length (low byte)
+    move.b  d1,(a0)+
+    
+    move.l  d2,d0
+    and.l   #3,d0                   ; d0 = channel number
+    
+    lea     $A00100,a0
+    moveq   #1,d1    
+    lsl.l   d0,d1                   ; d1 = channel shift command
+    or.b    d1,(a0)                 ; set PCM play command
+    
+    lea     $A00108,a0   
+    add.l   d0,d0
+    adda.l  d0,a0                   ; a0 point on channel info
+
+    move.l  d2,d0
+    lsr.l   #4,d0
+    and.l   #$F,d0                  ; d0 = priority
+    
+    move.b  d0,(a0)+                ; set priority
+    
+    move.l  (a2),d0       ; d0 = PCM id
+
+    move.b  d0,(a0)                 ; set PCM id
+
+    addq.l  #1,d0  
+    and.l   #$FF,d0                
+    or.l   #$40,d0                  ; id < 0x40 are reserved for music
+    move.l  d0,(a2)       ; pass to next id
+
+    move.w  #$000,($A11100)         ; release the Z80 bus
+	RTS
+
