@@ -200,36 +200,6 @@
   name "MD_SetWindowPosition","X Offset,Y Offset,From Right,From Bottom"
 
   astatement
-  args long,long,long
-  libs
-  subs MD_XGM_Init,0,0
-  name "MD_XGM_Init","Z80 XGM Driver Size, Z80 XGM Driver, Null Pointer (256 byte aligned)"
-
-  astatement
-  args long, long
-  libs
-  subs MD_XGM_PlayMusic,0,0
-  name "MD_XGM_PlayMusic","XGM Track, Null Pointer (256 byte aligned)"
-
-  astatement
-  args
-  libs
-  subs MD_XGM_StopMusic,0,0
-  name "MD_XGM_StopMusic","Stop music"
-
-  astatement
-  args
-  libs
-  subs MD_XGM_ResumeMusic,0,0
-  name "MD_XGM_ResumeMusic","Resume music"
-
-  astatement
-  args long, long, long, long
-  libs
-  subs MD_XGM_PCM,0,0
-  name "MD_XGM_PCM","PCM address, PCM length, PCM channel, PCM ID Pointer (long)"
-
-  astatement
 	args long,long,long,long,long
 	libs
 	subs MD_MDSDRV_Init,0,0
