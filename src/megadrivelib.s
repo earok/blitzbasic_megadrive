@@ -175,6 +175,42 @@
 	subs MD_GamePad2_3Button,0,0
   name "MD_GamePad2_3Button","Button State for GamePad 2 - SACBRLDU"
 
+  afunction word
+	args
+	libs
+	subs MD_GamePad1_6Button,0,0
+  name "MD_GamePad1_6Button","Extended Button State for GamePad 2 - SACBRLDU"
+
+  afunction word
+	args
+	libs
+	subs MD_GamePad2_6Button,0,0
+  name "MD_GamePad2_6Button","Extended Button State for GamePad 2 - MXYZSACBRLDU"
+
+  afunction word
+	args
+	libs
+	subs MD_Plutie_IsEAMultitap,0,0
+  name "MD_Plutie_IsEAMultitap","Is an EA multitap present?"
+
+  afunction word
+	args
+	libs
+	subs MD_Plutie_IsSegaMultitap,0,0
+  name "MD_Plutie_IsSegaMultitap","Is a Sega multitap present?"
+
+  astatement
+	args long,long
+	libs
+	subs MD_Plutie_ReadEAMultitap,0,0
+  name "MD_Plutie_ReadEAMultitap","Buffer of 28 bytes,number of loops (2/7)"
+
+  astatement
+	args long
+	libs
+	subs MD_Plutie_ReadSegaMultitap,0,0
+  name "MD_Plutie_ReadSegaMultitap","Buffer of 24 bytes"
+
   astatement
 	args long
 	libs

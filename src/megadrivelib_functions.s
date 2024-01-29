@@ -7,6 +7,27 @@ VRAM_SIZE:    equ 65536
 CRAM_SIZE:    equ 128
 VSRAM_SIZE:   equ 80
 
+IoCtrl1: equ $A10009   ; 1P control port
+IoCtrl2: equ $A1000B   ; 2P control port
+IoData1: equ $A10003   ; 1P data port
+IoData2: equ $A10005   ; 2P data port
+
+EAMULTI_1P:   equ $0C  ; Controller #1
+EAMULTI_2P:   equ $1C  ; Controller #2
+EAMULTI_3P:   equ $2C  ; Controller #3
+EAMULTI_4P:   equ $3C  ; Controller #4
+EAMULTI_ID:   equ $7C  ; Multitap ID
+
+Z80BusReq:  equ $A11100  ; Z80 bus request line
+
+FastPauseZ80:Macro
+    move.w  #$100,Z80BusReq
+	EndM
+
+ResumeZ80:Macro
+    move.w  #$000,Z80BusReq
+	EndM
+
 ;Put sample table at top of RAM for now ???
 _global_xgmsample_ID_table: equ $FF0000
 
@@ -15,15 +36,16 @@ MD_VWait
    
 MD_VWait_Frames
    SubQ #1,D0
-   
+   lea VDP_CONTROL,A0
+
 VBlank_End
-   move.w VDP_CONTROL,d1 ; Move VDP status word to d0
+   move.w (A0),d1 ; Move VDP status word to d0
    andi.w #$0008,d1     ; AND with bit 4 (vblank), result in status register
    bne    VBlank_End ; Branch if not equal (to zero)
    DBra D0,VBlank_Start
    
 VBlank_Start
-   move.w VDP_CONTROL,d1 ; Move VDP status word to d0
+   move.w (A0),d1 ; Move VDP status word to d0
    andi.w #$0008,d1     ; AND with bit 4 (vblank), result in status register
    beq    VBlank_Start   ; Branch if equal (to zero)
    rts
@@ -37,29 +59,34 @@ MD_IsResetButtonPressed
 	BRA MD_False
 
 MD_ClearVDP
+	lea VDP_DATA,A0
+	lea VDP_CONTROL,A1
+
+
 ;https://plutiedev.com/vdp-setup wiping out ALL VDP
-    move.w #$8F02,VDP_CONTROL      ; Set autoincrement to 2 bytes
+    move.w #$8F02,(A1)      ; Set autoincrement to 2 bytes
     moveq   #0,d0          
     
     ; Clear CRAM
-    move.l  #CRAM_ADDR_CMD,VDP_CONTROL
+    move.l  #CRAM_ADDR_CMD,(A1)
     move.w  #(CRAM_SIZE/4)-1,d1
 @ClearCram:
-    move.l  d0,VDP_DATA
+    move.l  d0,(A0)
     dbf     d1,@ClearCram    
 
     ; Clear VRAM
-    move.l  #VRAM_ADDR_CMD,VDP_CONTROL
+    move.l  #VRAM_ADDR_CMD,(A1)
     move.w  #(VRAM_SIZE/4)-1,d1
+		
 @ClearVram:
-    move.l  d0,VDP_DATA
+    move.l  d0,(A0)
     dbf     d1,@ClearVram
     
     ; Clear VSRAM
-    move.l  #VSRAM_ADDR_CMD,VDP_CONTROL
+    move.l  #VSRAM_ADDR_CMD,(A1)
     move.w  #(VSRAM_SIZE/4)-1,d1
 @ClearVsram:
-    move.l  d0,VDP_DATA
+    move.l  d0,(A0)
     dbf     d1,@ClearVsram
 	RTS
 
@@ -115,8 +142,8 @@ MD_Setup
 	add.w #$0100,d1          ; Increment register #
 	dbra d0,.CopyVDP
 
-	move.b #$00,$000A10009  ; Controller port 1 CTRL
-	move.b #$00,$000A1000B  ; Controller port 2 CTRL
+	move.b #$00,IoCtrl1  ; Controller port 1 CTRL
+	move.b #$00,IoCtrl2  ; Controller port 2 CTRL
 	move.b #$00,$000A1000D  ; EXP port CTRL
 	
 	move.l (A7),D2
@@ -601,6 +628,271 @@ MD_CopyTo_NameTable_LoopX ;Todo - unroll for performance reasons? Also offer a l
 	dbra D3,MD_CopyTo_NameTable_LoopY
 	RTS
 
+;Test if a Sega Multitap is in player 1 port, and configure appropriately
+MD_Plutie_IsSegaMultitap
+	lea IoData1,A0
+	jsr MD_Plutie_GetPeripheralId	
+	cmp.w #%0111,D0 ;Is this a multi tap
+	bne NotSega
+
+	;This is a multitap, so configure appropriately
+    move.b  #$60,IoCtrl1
+    move.b  #$60,IoData1
+	MoveQ #-1,D0
+	RTS
+
+NotSega
+	MoveQ #0,D0
+	RTS
+
+;Detect if there's an EA multitap
+MD_Plutie_IsEAMultitap
+    FastPauseZ80
+    
+    ; Set up ports to check for
+    ; EA multitap
+    move.b  #$40,IoCtrl1
+    move.b  #$7F,IoCtrl2
+    move.b  #$40,IoData1
+    
+    ; Read from controller #1
+    move.b  #EAMULTI_1P,IoData2
+    nop
+    nop
+    moveq   #%0000011,d0
+    and.b   IoData1,d0
+    
+    ; Read from multitap ID
+    move.b  #EAMULTI_ID,IoData2
+    nop
+    nop
+    moveq   #%0000011,d1
+    and.b   IoData1,d1
+    
+    ; We can let the Z80 run now
+    ResumeZ80
+    
+    ; Check if both are valid
+    tst.b   d0
+    beq     @NotEA
+    tst.b   d1
+    bne     @NotEA
+	MoveQ #-1,D0
+	RTS
+
+@NotEA
+	MoveQ #0,D0
+	RTS
+
+;D0 is the place where we save the results
+;D1 is the number of loops (being 7 for six button or 2 for two button)
+MD_Plutie_ReadEAMultitap
+    lea     IoData1,a0
+    lea     IoData2,a1
+    move.l D0,a2 ;Buffer goes into D0
+    
+    ; Keep the Z80 out of the way
+    ; while we touch the I/O ports
+    FastPauseZ80
+    
+    ; Read all the controller values
+    ; (see below for how many times)
+	subq.w   #1,d1 ;Loops are in D1
+    moveq   #$40,d0
+@Loop:
+    ; Toggle select line
+    move.b  d0,(a0)
+    
+    ; Read controller #1
+    move.b  #EAMULTI_1P,(a1)
+    nop
+    nop
+    nop
+    move.b  (a0),(a2)+
+    
+    ; Read controller #2
+    move.b  #EAMULTI_2P,(a1)
+    nop
+    nop
+    nop
+    move.b  (a0),(a2)+
+    
+    ; Read controller #3
+    move.b  #EAMULTI_3P,(a1)
+    nop
+    nop
+    nop
+    move.b  (a0),(a2)+
+    
+    ; Read controller #4
+    move.b  #EAMULTI_4P,(a1)
+    nop
+    nop
+    nop
+    move.b  (a0),(a2)+
+    
+    ; Onto next value
+    ; Clever trick here: d1 will swap
+    ; between $40 and $00 (remember
+    ; we used moveq earlier!)
+    swap    d0
+    dbf     d1,@Loop
+    
+    ; Z80 can run again now
+    ResumeZ80
+    
+    ; We're done
+    rts
+
+MD_Plutie_ReadSegaMultitap
+    lea    IoData1,a0
+	move.l D0,A1 ;Address to results buffer in D0
+
+    ; 1st multitap check
+    move.b  #$60,(A0)
+    nop
+    nop
+    nop
+    moveq   #$0F,d0
+    and.b   (a0),d0
+    cmp.b   #$03,d0
+    bne     @Error
+    
+    ; 2nd multitap check
+    move.b  #$20,(a0)
+    nop
+    nop
+    nop
+    moveq   #$0F,d0
+    and.b   (a0),d0
+    cmp.b   #$0F,d0
+    bne     @Error
+
+	;Time to read the nibbles
+	bsr ReadSegaNibble 
+	tst.b D0 
+	bne @Error ;First two nibbles must be zero
+
+	bsr ReadSegaNibble 
+	tst.b D0 
+	bne @Error ;First two nibbles must be zero
+
+	bsr ReadSegaNibble 
+	move.b D0,D2 ;First controller type
+	bsr ReadSegaNibble 
+	move.b D0,D3 ;Second controller type
+	bsr ReadSegaNibble 
+	move.b D0,D4 ;Third controller type
+	bsr ReadSegaNibble 
+	move.b D0,D5 ;Fourth controller type
+
+	move.b D2,D0 
+	bsr ReadSegaMultitapDevice ;First controller nibbles
+	move.b D3,D0 
+	bsr ReadSegaMultitapDevice ;Second controller nibbles
+	move.b D4,D0 
+	bsr ReadSegaMultitapDevice ;Third controller nibbles
+	move.b D5,D0 
+	bsr ReadSegaMultitapDevice ;Fourth controller nibbles
+
+	;We're done! Put the data port back to 60
+    move.b  #$60,(A0)
+	rts
+
+ReadSegaMultitapDevice
+	Cmp.b #%0000,D0
+	BNE Not3Button
+	;This is a 3 button controller, just read two nibbles
+	BSR ReadSegaNibble 
+	move.b D0,(A1)+
+	BSR ReadSegaNibble
+	move.b D0,(A1)+
+	AddQ.l #4,A1
+	RTS
+
+Not3Button
+	;Maybe this is a six button?
+	Cmp.b #%0001,D0
+	BNE Not6Button
+	BSR ReadSegaNibble 
+	move.b D0,(A1)+
+	BSR ReadSegaNibble 
+	move.b D0,(A1)+
+	BSR ReadSegaNibble 
+	move.b D0,(A1)+
+	AddQ.l #3,A1
+	RTS
+
+Not6Button
+	;Maybe this is a mouse?
+	Cmp.b #%0010,D0
+	BNE Nothing
+	BSR ReadSegaNibble 
+	move.b D0,(A1)+
+	BSR ReadSegaNibble 
+	move.b D0,(A1)+
+	BSR ReadSegaNibble 
+	move.b D0,(A1)+
+	BSR ReadSegaNibble 
+	move.b D0,(A1)+
+	BSR ReadSegaNibble 
+	move.b D0,(A1)+
+	BSR ReadSegaNibble 
+	move.b D0,(A1)+
+	RTS
+
+Nothing
+	Cmp.b #%1111,D0
+	BNE DeviceError
+	;This isn't anything	
+	Addq.l #6,A1 ;Move ahead six bytes
+	RTS
+
+DeviceError
+	ILLEGAL
+	RTS
+
+
+; Read a nibble from the Sega multitap
+; in a0.l = pointer to IoData1/2
+; in d0.b = nibble (-1 on error)
+
+ReadSegaNibble:
+    ; Flip bit 5
+    bchg    #5,(a0)
+    
+    ; 68000 trick: BCHG will set the
+    ; zero flag to the new value of
+    ; the bit (0 if clear, 1 if set)
+    ; so we use SEQ which sets d0 to
+    ; either 0 (if Z=0) or $FF (if Z=1)
+    ; then AND to leave only bit 4
+    seq.b   d0
+    and.b   #1<<4,d0
+    
+    ; Now wait until bit 4 gets set
+    ; to the same value we want
+    ; If it takes too long we return
+    ; an error (unplugged?)
+    moveq   #$7F,d7
+@Wait:
+    moveq   #1<<4,d1
+    and.b   (a0),d1
+    cmp.b   d0,d1
+    beq.s   @GotNibble
+    dbf     d7,@Wait
+    bra     @Error
+    
+@GotNibble:
+    ; Get the nibble in d0
+    moveq   #$0F,d0
+    and.b   (a0),d0
+    rts
+    
+@Error:
+    ; Whoops
+    moveq   #-1,d0
+    rts	
 
 ;D0 = Foreground scroll X
 ;D1 = Foreground scroll y
@@ -630,17 +922,17 @@ MD_Scroll:
 
 MD_GamePad1_3Button
 	moveq	#$40,d0
-	move.b	d0,($A10009).l	; TH pin to write, others to read
-	move.b	d0,($A10003).l	; TH to 1
+	move.b	d0,IoCtrl1	; TH pin to write, others to read
+	move.b	d0,IoData1	; TH to 1
 	nop
 	nop
-	move.b	($A10003).l,d0
+	move.b	IoData1,d0
 	andi.b	#$3F,d0		; d0 = 00CBRLDU
 	moveq	#0,d1
-	move.b	#0,($A10003).l	; TH to 0
+	move.b	#0,IoData1	; TH to 0
 	nop
 	nop
-	move.b	($A10003).l,d1
+	move.b	IoData1,d1
 	andi.b	#$30,d1		; d1 = 00SA0000
 	lsl.b	#2,d1		; d1 = SA000000
 	or.b	d1,d0		; d0 = SACBRLDU
@@ -649,23 +941,93 @@ MD_GamePad1_3Button
 
 MD_GamePad2_3Button
 	moveq	#$40,d0
-	move.b	d0,($A1000B).l	; TH pin to write, others to read
-	move.b	d0,($A10005).l	; TH to 1
+	move.b	d0,IoCtrl2	; TH pin to write, others to read
+	move.b	d0,IoData2	; TH to 1
 	nop
 	nop
-	move.b	($A10005).l,d0
+	move.b	IoData2,d0
 	andi.b	#$3F,d0		; d0 = 00CBRLDU
 	moveq	#0,d1
-	move.b	#0,($A10005).l	; TH to 0
+	move.b	#0,IoData2	; TH to 0
 	nop
 	nop
-	move.b	($A10005).l,d1
+	move.b	IoData2,d1
 	andi.b	#$30,d1		; d1 = 00SA0000
 	lsl.b	#2,d1		; d1 = SA000000
 	or.b	d1,d0		; d0 = SACBRLDU
 	not.b	d0
 	RTS
 	
+MD_GamePad1_6Button
+	moveq	#$40,d0
+	move.b	d0,IoCtrl1	; TH pin to write, others to read
+	move.b	d0,IoData1	; TH to 1
+	nop
+	nop
+	move.b	IoData1,d0
+	andi.b	#$3F,d0		; d0 = 00CBRLDU
+	moveq	#0,d1
+	move.b	#0,IoData1	; TH to 0
+	nop
+	nop
+	move.b	IoData1,d1
+	andi.b	#$30,d1		; d1 = 00SA0000
+	lsl.b	#2,d1		; d1 = SA000000
+	or.b	d1,d0		; d0 = SACBRLDU
+	moveq	#0,d1
+	move.b	#$40,IoData1 ; TH to 1
+	nop
+	nop
+	move.b	#0,IoData1	; TH to 0
+	nop
+	nop
+	move.b	#$40,IoData1 ; TH to 1
+	nop
+	nop
+	move.b	IoData1,d1
+	move.b	#0,IoData1	; TH to 0
+	andi.w	#$F,d1		; d1 = 0000MXYZ
+	lsl.w	#8,d1		; d1 = 0000MXYZ00000000
+	or.w	d1,d0		; d0 = 0000MXYZSACBRLDU
+	not.w	d0 ;Reverse the state
+	and.w   #$fff,d0 ;Clear the top bits
+	RTS
+
+MD_GamePad2_6Button
+	moveq	#$40,d0
+	move.b	d0,IoCtrl2	; TH pin to write, others to read
+	move.b	d0,IoData2	; TH to 1
+	nop
+	nop
+	move.b	IoData2,d0
+	andi.b	#$3F,d0		; d0 = 00CBRLDU
+	moveq	#0,d1
+	move.b	#0,IoData2	; TH to 0
+	nop
+	nop
+	move.b	IoData2,d1
+	andi.b	#$30,d1		; d1 = 00SA0000
+	lsl.b	#2,d1		; d1 = SA000000
+	or.b	d1,d0		; d0 = SACBRLDU
+	moveq	#0,d1
+	move.b	#$40,IoData2 ; TH to 1
+	nop
+	nop
+	move.b	#0,IoData2	; TH to 0
+	nop
+	nop
+	move.b	#$40,IoData2 ; TH to 1
+	nop
+	nop
+	move.b	IoData2,d1
+	move.b	#0,IoData2	; TH to 0
+	andi.w	#$F,d1		; d1 = 0000MXYZ
+	lsl.w	#8,d1		; d1 = 0000MXYZ00000000
+	or.w	d1,d0		; d0 = 0000MXYZSACBRLDU
+	not.w	d0 ;Reverse the state
+	and.w   #$fff,d0 ;Clear the top bits
+	RTS
+
 ;D0 = The source address
 ;D1 = The pattern index
 ;D2 = The number of patterns
@@ -1039,3 +1401,65 @@ MD_MDSDRV_Request:
 	
 JustReturn
 	RTS
+
+
+
+
+MD_Plutie_GetPeripheralId:
+    ; Make sure pin direction is
+    ; set correctly for this
+    FastPauseZ80
+    move.b  #$40,6(a0)
+    
+    ; Get bits 3-2 of peripheral ID
+    move.b  #$40,(a0)
+    nop
+    nop
+    lea     @Table1(pc),a1
+    moveq   #$0F,d1
+    and.b   (a0),d1
+    move.b  (a1,d1.w),d1
+    
+    ; Get bits 1-0 of peripheral ID
+    move.b  #$00,(a0)
+    nop
+    nop
+    lea     @Table2(pc),a1
+    moveq   #$0F,d0
+    and.b   (a0),d0
+    move.b  (a1,d0.w),d0
+    
+    ; Leave peripheral alone
+    move.b  #$40,(a0)
+    ResumeZ80
+    
+    ; Put bits together
+    or.b    d1,d0
+    
+    ; Result is in d0
+    rts
+    
+    ; Look-up table to extract ID
+    ; bits from the first read
+@Table1:
+    dc.b  %0000,%0100,%0100,%0100
+    dc.b  %1000,%1100,%1100,%1100
+    dc.b  %1000,%1100,%1100,%1100
+    dc.b  %1000,%1100,%1100,%1100
+    
+    ; Look-up table to extract ID
+    ; bits from the second read
+@Table2:
+    dc.b  %0000,%0001,%0001,%0001
+    dc.b  %0010,%0011,%0011,%0011
+    dc.b  %0010,%0011,%0011,%0011
+    dc.b  %0010,%0011,%0011,%0011
+
+	;34 Cycles / 12 bytes
+;	Lea 8(PC),A0
+;	JMP 4(A0)
+;	Move.l A0,32(A1)
+
+	;42 Cycles / 8 bytes
+;	JSR 4(A0)
+;	Move.l (A7)+,32(A1)

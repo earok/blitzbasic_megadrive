@@ -1,7 +1,7 @@
 DEFTYPE .l
 
 if NumPars < 2
-	NPrint "Usage: Blitz2Sega [input] [output] (32x)"
+	NPrint "Usage: Blitz2Sega [input] [output] (32x) (neogeo)"
 	End
 endif
 
@@ -24,7 +24,15 @@ RelocateStart = CodeStart + CodeLength + 12
 
 CodeOffset.l = -8
 if NumPars > 2
-	CodeOffset + $880000
+	select Par$(3)
+		case "32x"
+			CodeOffset + $880000
+		case "neogeo"
+			IsNeoGeo = true
+		Default
+			NPrint "Unknown options"
+			End
+	end select
 endif
 
 ;Fix the address offsets
@@ -56,16 +64,23 @@ Wend
 CodeStart+8
 CodeLength-8
 
-;Set the ROM Size
-Poke.l CodeStart + $1A4,CodeLength-1
+;We only fix the check sum and code size on Mega Drive
+if IsNeoGeo = false
 
-;Set the MDChecksum
-MDChecksum = 0
-Address = CodeStart + $200
-While Address < CodeStart + CodeLength
-	MDChecksum + Peek.w(Address)
-	Address + 2	
-Wend
+	;Set the ROM Size
+	Poke.l CodeStart + $1A4,CodeLength-1
+
+	;Set the MDChecksum
+	MDChecksum = 0
+	Address = CodeStart + $200
+	While Address < CodeStart + CodeLength
+		MDChecksum + Peek.w(Address)
+		Address + 2	
+	Wend
+
+	Poke.w CodeStart + $18E,MDChecksum
+
+endif
 
 ;Final check to see if there's a reference to ".lib", implying that an Amiga library is present
 HasLibraryReference = false
@@ -77,13 +92,16 @@ While Address < CodeStart + CodeLength
 	Address + 1
 Wend
 
-Poke.w CodeStart + $18E,MDChecksum
 
 if WriteFile(0,Par$(2))
 	WriteMem 0,CodeStart,CodeLength
 	CloseFile 0	
 else
-	NPrint "Could not save Mega Drive file"
+	if IsNeoGeo
+		NPrint "Could not save Neo Geo file"
+	else
+		NPrint "Could not save Mega Drive file"
+	endif
 	End
 endif
 
@@ -92,7 +110,11 @@ NPrint "Probable error - library detected. Are you using a Blitz lib"
 NPrint "that refers to Amiga libraries?"
 NPrint "(even the True or False keywords could trigger that)"
 else
+if IsNeoGeo
+NPrint "Successfully(?) generated Neo Geo file. Good luck!"
+else
 NPrint "Successfully(?) generated Mega Drive file. Good luck!"
+endif
 endif
 
 End
