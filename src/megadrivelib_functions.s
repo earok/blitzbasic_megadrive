@@ -981,6 +981,12 @@ MD_GamePad1_6Button
 	move.b	#0,IoData1	; TH to 0
 	nop
 	nop
+
+	;Check if we ACTUALLY have a six button 
+	move.b IoData1,d1
+	and.b #$f,d1
+	bne Finish_MD_GamePad_6Button
+
 	move.b	#$40,IoData1 ; TH to 1
 	nop
 	nop
@@ -989,6 +995,8 @@ MD_GamePad1_6Button
 	andi.w	#$F,d1		; d1 = 0000MXYZ
 	lsl.w	#8,d1		; d1 = 0000MXYZ00000000
 	or.w	d1,d0		; d0 = 0000MXYZSACBRLDU
+
+Finish_MD_GamePad_6Button
 	not.w	d0 ;Reverse the state
 	and.w   #$fff,d0 ;Clear the top bits
 	RTS
@@ -1016,6 +1024,12 @@ MD_GamePad2_6Button
 	move.b	#0,IoData2	; TH to 0
 	nop
 	nop
+
+	;Check if we ACTUALLY have a six button 
+	move.b IoData2,d1
+	and.b #$f,d1
+	bne Finish_MD_GamePad_6Button
+
 	move.b	#$40,IoData2 ; TH to 1
 	nop
 	nop
@@ -1248,12 +1262,14 @@ MD_SetWindowPosition
 	;X Position
 	and.w #$80,D2
 	or.w D2,D0
+	and.w #$9F,D0
 	or.w #$9100,D0 
 	move.w D0,VDP_CONTROL
 
 	;Y Position
 	and.w #$80,D3
 	or.w D3,D1
+	and.w #$9F,D1
 	or.w #$9200,D1 
 	move.w D1,VDP_CONTROL	
 	RTS
