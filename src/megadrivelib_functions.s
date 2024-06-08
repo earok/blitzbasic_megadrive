@@ -90,15 +90,25 @@ MD_ClearVDP
     dbf     d1,@ClearVsram
 	RTS
 
+Pico_Setup
+	Move.b #$53,$800019 ;S
+	Move.b #$45,$80001b ;E
+	Move.b #$47,$80001d ;G
+	Move.b #$41,$80001f ;A
+	bra PicoSkip
 	
 MD_Setup
 	Move #$2700,SR 	;Final setup steps ;DISABLE ALL INTERRUPTS
+
+	;Is this a pico? Do the pico TMSS instead
+	Cmp.l #$20504943,$104 ;" PIC"
+	BEQ Pico_Setup
+
 	move.b $00A10001,d0      ; Move Megadrive hardware version to d0
 	andi.b #$0F,d0           ; The version is stored in last four bits, so mask it with 0F
-	beq .Skip                  ; If version is equal to 0, skip TMSS signature
+	beq Skip                  ; If version is equal to 0, skip TMSS signature
 	move.l #$53454741,$00A14000 ; Move the string "SEGA" to $A14000
-.Skip:
-
+Skip:
 
 	move.w #$0100,$00A11100    ; Request access to the Z80 bus, by writing $0100 into the BUSREQ port
 	move.w #$0100,$00A11200    ; Hold the Z80 in a reset state, by writing $0100 into the RESET port
@@ -131,7 +141,7 @@ MD_Setup
 	move.b (a0)+,$00C00011   ; Copy data to PSG RAM
 	dbra d0,.CopyPSG
 	
-
+PicoSkip:
 	move.l #VDPRegisters,a0   ; Load address of register table into a0
 	move.l #$18,d0           ; 24 registers to write
 	move.l #$00008000,d1     ; 'Set register 0' command (and clear the rest of d1 ready)
@@ -146,6 +156,7 @@ MD_Setup
 	move.b #$00,IoCtrl2  ; Controller port 2 CTRL
 	move.b #$00,$000A1000D  ; EXP port CTRL
 	
+ClearSetup:
 	move.l (A7),D2
 	move.l #$00000000,d0     ; Place a 0 into d0, ready to copy to each longword of RAM
 	move.l #$00000000,a0     ; Starting from address $0, clearing backwards
