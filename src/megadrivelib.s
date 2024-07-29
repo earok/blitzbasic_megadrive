@@ -163,6 +163,12 @@
     subs MD_Fake_AllocMem,0,0	
   name "MD_Fake_AllocMem","A fake version of Exec.Library's AvailMem function"
 
+  afunction byte
+	args
+	libs
+	subs Is_Pico,0,0
+  name "Is_Pico","Is this a Sega Pico?"
+
   afunction word
 	args
 	libs

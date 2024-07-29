@@ -42,12 +42,12 @@ VBlank_End
    move.w (A0),d1 ; Move VDP status word to d0
    andi.w #$0008,d1     ; AND with bit 4 (vblank), result in status register
    bne    VBlank_End ; Branch if not equal (to zero)
-   DBra D0,VBlank_Start
    
 VBlank_Start
    move.w (A0),d1 ; Move VDP status word to d0
    andi.w #$0008,d1     ; AND with bit 4 (vblank), result in status register
    beq    VBlank_Start   ; Branch if equal (to zero)
+   DBra D0,VBlank_End
    rts
 
 ;Do the stuff here!
@@ -90,11 +90,15 @@ MD_ClearVDP
     dbf     d1,@ClearVsram
 	RTS
 
+Is_Pico
+	Cmp.l #$20504943,$104 ;" PIC"
+	Seq.b D0
+	rts
+
 Pico_Setup
-	Move.b #$53,$800019 ;S
-	Move.b #$45,$80001b ;E
-	Move.b #$47,$80001d ;G
-	Move.b #$41,$80001f ;A
+	Move.l #$53454741,D0
+	Lea $800019,A0
+	MOVEP.l D0,0(A0)
 	bra PicoSkip
 	
 MD_Setup
@@ -141,6 +145,11 @@ Skip:
 	move.b (a0)+,$00C00011   ; Copy data to PSG RAM
 	dbra d0,.CopyPSG
 	
+	;These should not be done on the pico
+	move.b #$00,IoCtrl1  ; Controller port 1 CTRL
+	move.b #$00,IoCtrl2  ; Controller port 2 CTRL
+	move.b #$00,$000A1000D  ; EXP port CTRL
+
 PicoSkip:
 	move.l #VDPRegisters,a0   ; Load address of register table into a0
 	move.l #$18,d0           ; 24 registers to write
@@ -151,10 +160,6 @@ PicoSkip:
 	move.w d1,VDP_CONTROL      ; Write command and value to VDP control port
 	add.w #$0100,d1          ; Increment register #
 	dbra d0,.CopyVDP
-
-	move.b #$00,IoCtrl1  ; Controller port 1 CTRL
-	move.b #$00,IoCtrl2  ; Controller port 2 CTRL
-	move.b #$00,$000A1000D  ; EXP port CTRL
 	
 ClearSetup:
 	move.l (A7),D2
