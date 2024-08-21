@@ -647,7 +647,7 @@ MD_CopyTo_NameTable_LoopX ;Todo - unroll for performance reasons? Also offer a l
 ;Test if a Sega Multitap is in player 1 port, and configure appropriately
 MD_Plutie_IsSegaMultitap
 	lea IoData1,A0
-	jsr MD_Plutie_GetPeripheralId	
+	bsr MD_Plutie_GetPeripheralId	
 	cmp.w #%0111,D0 ;Is this a multi tap
 	bne NotSega
 
@@ -1110,7 +1110,7 @@ MD_DMA_Transfer_SkipSize
 
 	MoveM.l D0-D3,-(sp) ;Backup our source variables
 	Move.w D6,D1 ;We want to copy the first set of words
-	JSR MD_DMA_Transfer_Ready	
+	BSR MD_DMA_Transfer_Ready	
 	MoveM.l (sp)+,D0-D3 ;Restore our original variables
 	Sub.l D6,D1 ;Subtract the length of words we've already copied from our length
 	BEQ MD_DMA_Transfer_Done ;=== FIX FOR BUG ===
@@ -1381,7 +1381,7 @@ MD_MDSDRV_Volume:
 	Move.l D2,A0
 
 	Exg D0,D6
-	JSR ClampSound
+	BSR ClampSound
 	Exg D7,D2
 
 	MoveQ #$D,D0
@@ -1404,13 +1404,13 @@ MD_MDSDRV_GVolume:
 
 	;Upper eight bits is music
 	Move.w D0,D6
-	JSR ClampSound
+	BSR ClampSound
 	LSL.w #8,D7
 	Move.w D7,D0
 
 	;Lower eight bits is SFX
 	Move.w D1,D6
-	JSR ClampSound
+	BSR ClampSound
 	Move.b D7,D0
 
 	Move.w D0,D1
